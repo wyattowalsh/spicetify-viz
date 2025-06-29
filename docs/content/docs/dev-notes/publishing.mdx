@@ -1,0 +1,259 @@
+---
+title: contribution & release
+description: the contribution workflow, from code quality and commits to fully automated releases.
+icon: FaPaperPlane
+---
+
+import { Steps } from 'fumadocs-ui/components/steps';
+import { Callout } from 'fumadocs-ui/components/callout';
+import { CodeBlock } from 'fumadocs-ui/components/codeblock';
+import { Mermaid } from '@/components/mdx/mermaid';
+import { Tabs, Tab } from 'fumadocs-ui/components/tabs';
+
+---
+
+the contribution and release workflow is standardized and automated to ensure code quality, maintain a clean version history, and remove human error from the release process. adherence to these guidelines is **mandatory**.
+
+<Steps>
+
+### 1. Code Quality & Verification
+
+all contributions must meet the project's quality standards, which are enforced automatically by the ci pipeline. verify these checks locally before opening a pull request to ensure a smooth review process.
+
+-   **linting & formatting:** the codebase is formatted with prettier and linted with eslint. run the full suite to catch any issues:
+    ```bash
+    # from the project root
+    pnpm lint
+    ```
+
+-   **typescript:**
+    - the use of `any` is strictly forbidden. it undermines the entire type system and will fail the ci build.
+    - for data with an unknown structure (e.g., api responses), use `unknown` and perform type-safe validation (e.g., with a zod schema) before the data is used. this is a non-negotiable security and stability requirement.
+
+-   **comments:** comment on the **why**, not the **what**. code should be self-documenting. comments are reserved for explaining complex algorithms, architectural decisions, or the rationale behind a non-obvious implementation.
+
+    ```ts
+    // good: explains the 'why'.
+    // debounce to handle rapid, intermediate song-change events from the client,
+    // which prevents visual flickering and excessive theme re-computation.
+    const debouncedsongchangehandler = debounce(handlesongchange, 50);
+
+    // bad: states the obvious.
+    // increment i.
+    i++;
+    ```
+
+-   **testing:** new features, bug fixes, and refactors must be accompanied by comprehensive tests. this project uses [vitest](https://vitest.dev/) for its speed and modern features.
+    -   **unit tests:** for pure functions (e.g., utility functions, color calculation), write unit tests that cover all success paths, failure paths, and edge cases. mock any external dependencies using `vi.mock`.
+    -   **integration tests:** for visualizer classes or react components, write tests that verify the interaction between different parts of the system. mocks for `spicetify` apis and the `audioservice` are essential to isolate the component under test.
+    -   **cross-platform validation:** because this is a graphics application, it is **mandatory** to test all visual and functional changes on the latest stable versions of spotify for **macos, windows, and linux**. rendering, performance, and api behavior have subtle platform-specific quirks.
+    -   run the full test suite locally before pushing:
+        ```bash
+        pnpm test
+        ```
+
+### 2. Commit Hygiene: Conventional Commits
+
+this project uses the [conventional commits](https://www.conventionalcommits.org/en/v1.0.0/) specification. these structured commit messages are not just a convention; they are machine-readable and directly power the automated release process. non-conforming messages will fail ci.
+
+your commit message **must** be structured as follows:
+
+```
+<type>(optional scope): <description>
+
+[optional body]
+
+[optional footer(s)]
+```
+
+-   **types:** the `type` determines the semantic version increment.
+    -   `feat`: a new feature. (triggers a `minor` release: 1.2.0 -> 1.3.0)
+    -   `fix`: a bug fix. (triggers a `patch` release: 1.2.0 -> 1.2.1)
+    -   `docs`: documentation changes only. (no release)
+    -   `style`: code style changes (formatting, etc.). (no release)
+    -   `refactor`: a code change that neither fixes a bug nor adds a feature. (no release)
+    -   `perf`: a code change that improves performance. (triggers a `patch` release)
+    -   `test`: adding or correcting tests. (no release)
+    -   `build`: changes to the build system or external dependencies. (triggers a `patch` release)
+    -   `ci`: changes to ci configuration. (no release)
+    -   `chore`: other changes that don't modify `src` or `test` files. (no release)
+-   **scope:** (optional) the part of the codebase affected (e.g., `visualizers`, `core-audio`, `docs`).
+-   **breaking changes:** a commit with a breaking change **must** include a footer starting with `breaking change:`, followed by a description. this triggers a `major` release (1.2.0 -> 2.0.0). alternatively, append a `!` after the type/scope: `feat(api)!: ... `.
+
+<Tabs items={['feat', 'fix', 'refactor', 'perf', 'BREAKING CHANGE']}>
+<Tab value="feat">
+adds a new feature. triggers a **minor** release.
+```
+feat(visualizers): add particle system visualizer
+
+implements a new visualizer using a compute shader-based gpgpu
+pipeline to ensure high performance. adds associated settings
+to the settings schema.
+```
+</Tab>
+<Tab value="fix">
+a bug fix. triggers a **patch** release.
+```
+fix(core-audio): prevent nan values from analyser node
+
+on initial load, the analysernode can sometimes return an array
+of `-infinity`, which results in nan values after calculations.
+
+this change clips the input values to a minimum of 0 before
+processing to prevent this from propagating through the system.
+```
+</Tab>
+<Tab value="refactor">
+a code change that neither fixes a bug nor adds a feature. no release.
+```
+refactor(theme): extract color quantization to pure function
+
+the median cut algorithm was tightly coupled to the theme service's
+class instance. this change extracts it to a pure, standalone
+function `quantize(pixels, count)` to improve testability and
+decouple it from the service's state.
+```
+</Tab>
+<Tab value="perf">
+a code change that improves performance. triggers a **patch** release.
+```
+perf(visualizers): use instanced mesh for retro grid
+
+replaces the previous implementation, which created a new mesh for
+each grid line, with a single instancedmesh. this reduces draw calls
+from n to 1, significantly improving gpu performance.
+```
+</Tab>
+<Tab value="breaking">
+a change that is not backwards-compatible. triggers a **major** release.
+```
+feat(core-settings)!: migrate to zod-based schema validation
+
+this commit refactors the settings engine to use zod for schema
+definition and validation, providing better type safety and runtime
+guarantees.
+
+breaking change: the `settingsschema` export format has changed.
+the old object-based schema is no longer supported. visualizers
+that define custom settings must now provide a `z.object({})` schema.
+```
+</Tab>
+</Tabs>
+
+### 3. The Pull Request & Code Review Process
+
+1.  **branching:** create a descriptive, issue-linked feature branch from `main`.
+    -   **good:** `feat/123-particle-visualizer`, `fix/456-audio-sync-off-by-one`
+    -   **bad:** `bugfix`, `my-feature`, `patch-1`
+
+2.  **open a pull request:** open a pr from your fork against the `main` branch of the upstream repository. link the pr to any relevant issues.
+
+3.  **pr title & description:** the pr must be meticulously filled out. the pr **title** must also follow the conventional commits specification, as it becomes the **final commit message** upon merging.
+
+    <Callout title='Why "squash and merge"?'>
+    prs are **squashed and merged** into `main`. this practice combines all commits from the feature branch into a single, atomic commit on the main branch, using the pr title as the commit message. this is not just for tidiness; it maintains a clean, understandable, and semantically meaningful project history where each commit represents one complete feature or fix. this is essential for the automated versioning and changelog generation to work correctly.
+    </Callout>
+
+    <CodeBlock title="PR Description Template">
+    ```markdown
+    <!-- link to the issue that this pr resolves. e.g., "closes #123" -->
+
+    ## description
+    <!-- (required) a clear, concise summary of the problem and the solution. -->
+
+    ## changes made
+    <!-- (required) a high-level, user-facing bulleted list of changes. -->
+    - added `radialbarsvisualizer.ts`.
+    - refactored `core/audio.ts` for performance.
+    - updated `settingsmenu.tsx` with a new slider.
+
+    ## how to test
+    <!-- (required for functional/visual changes) a step-by-step guide for the reviewer. -->
+    1. go to '...'
+    2. click on '....'
+    3. verify that '...' happens.
+
+    ## screenshots / gifs
+    <!-- (required for all visual changes) -->
+
+    ## checklist
+    <!-- (required) -->
+    - [ ] my code follows all project standards.
+    - [ ] my pr title and commit history follow the conventional commits specification.
+    - [ ] i have added or updated corresponding documentation.
+    - [ ] i have added or updated tests to cover my changes.
+    - [x] i have tested my changes locally on **macos**, **windows**, and **linux**. this is not optional.
+    ```
+    </CodeBlock>
+
+4.  **code review & merging:**
+    -   a maintainer will review the pr. be receptive to feedback.
+    -   all ci checks must pass before a pr can be merged.
+
+### 4. AI-Assisted Development
+
+this project embraces the use of modern ai-powered tools to augment the development process, increase productivity, and maintain high standards. contributors are encouraged to leverage these tools.
+
+-   **code generation & reasoning:** use tools like **github copilot** or an ai-native ide like **cursor** (for which this repository is pre-configured) to accelerate development. use them to scaffold new components, write complex algorithms, refactor code, and get explanations for unfamiliar parts of the codebase.
+-   **test generation:** ai assistants are highly effective at generating boilerplate for tests. ask them to create unit test files for new functions or integration tests for components, then fill in the specific assertions and edge cases.
+-   **conventional commits:** if you are unsure how to phrase a commit message, use an ai tool. provide the diff and ask it to generate a conventional commit message that accurately summarizes the changes. this helps maintain the integrity of the automated release pipeline.
+-   **documentation:** when adding a new feature, ask an ai assistant to help draft the corresponding documentation, which you can then refine.
+
+while ai is a powerful partner, the developer remains the final authority. **always review, understand, and validate any ai-generated code or text before committing it.**
+
+### 5. Automated Versioning & Release
+
+adherence to conventional commits enables a fully automated release process via github actions and [`semantic-release`](https://github.com/semantic-release/semantic-release).
+
+<Mermaid
+  chart={`
+sequenceDiagram
+    autonumber
+    
+    actor D as "fa:fa-user-cog Developer"
+    participant G as "fa:fa-github GitHub Repo"
+    participant CI as "fa:fa-cogs GitHub Actions"
+    participant SR as "fa:fa-tag semantic-release"
+    participant MP as "fa:fa-store Spicetify Marketplace"
+
+    D->>+G: PR is 'Squashed and Merged' into 'main'
+    G->>+CI: Trigger "Release" workflow
+
+    box "CI Pipeline: Analysis & Build"
+        CI->>CI: Checkout Code & Setup Environment
+        CI->>+SR: Run 'semantic-release'
+        note right of SR: Analyzes all conventional commits since last tag
+        SR-->>-CI: Determines next version (e.g., v1.6.0)
+        deactivate SR
+        
+        CI->>CI: Generate CHANGELOG.md from commits
+        CI->>CI: Build & Package Extension ('.zip')
+    end
+
+    box "CI Pipeline: Publishing"
+        CI->>G: Commit 'CHANGELOG.md' & 'package.json'
+        CI->>G: Create Git tag (e.g., 'v1.6.0') & Push
+        CI->>G: Create GitHub Release with changelog notes
+        
+        CI->>+MP: Upload 'spicetify-viz-v1.6.0.zip'
+        MP-->>-CI: Publication successful
+    end
+    
+    deactivate G
+    deactivate CI
+`}
+/>
+
+-   **1. trigger:** on every commit to `main` (i.e., a merged pr), the `semantic-release` process is triggered.
+-   **2. analysis & version calculation:** it analyzes all conventional commit messages since the last git release tag. it inspects the `type` of each commit to determine the next semantic version.
+    -   a `breaking change:` footer or a `!` in the type triggers a **major** bump (`v1.5.2` -> `v2.0.0`).
+    -   at least one `feat` commit triggers a **minor** bump (`v1.5.2` -> `v1.6.0`).
+    -   only `fix`, `perf`, etc., will trigger a **patch** bump (`v1.5.2` -> `v1.5.3`).
+    -   if only non-release commits (`docs`, `chore`, `style`, etc.) are present, no release is triggered.
+-   **3. build & package:** the action automatically generates a new section in `changelog.md` and the body of a new github release. it then runs `spicetify-creator` to bundle the extension into a versioned `.zip` file.
+-   **4. tagging & releasing:** it commits the updated `package.json` and `changelog.md`, creates a new git tag (e.g., `v1.6.0`), and pushes these to the repository along with the github release.
+-   **5. marketplace publishing:** the final step authenticates with the spicetify marketplace api (using a repository secret) and uploads the package and release notes, automatically making the new version available to all users.
+
+this fully automated process removes human error, enforces semantic versioning, and ensures every contribution is properly documented and released.
+
+</Steps> 

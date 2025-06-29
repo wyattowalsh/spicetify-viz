@@ -1,0 +1,60 @@
+---
+title: developer notes
+description: developer documentation for spicetify-viz.
+icon: FaCode
+---
+
+import { Cards, Card } from 'fumadocs-ui/components/card';
+import { FaHardHat, FaDraftingCompass, FaBug, FaPaperPlane, FaChartLine } from 'react-icons/fa';
+import { IoIosStats } from 'react-icons/io';
+
+---
+
+### project vision
+
+to engineer the definitive real-time audio visualizer for the spotify desktop client. this project serves as a public benchmark for excellence in modern, performant web technologies and is a showcase of professional software engineering practices. it is a creative playground for developers and a testament to the power of high-quality, open-source extensions.
+
+### who this is for
+
+this documentation is for developers, designers, and enthusiasts who wish to understand, contribute to, or learn from the `spicetify-viz` project. whether you're looking to build your own unique visualizer, resolve a complex performance issue, or simply study a modern graphics-intensive application, these documents are your authoritative guide. a strong working knowledge of typescript, react, and contemporary web development practices is assumed.
+
+this is the official engineering documentation for `spicetify-viz`. it covers architecture, development, and contributions.
+
+<Cards>
+  <Card
+    href="./setup"
+    icon={<FaHardHat />}
+    title="setup"
+    description="configuring a robust, reproducible local development environment."
+  />
+  <Card
+    href="./architecture"
+    icon={<FaDraftingCompass />}
+    title="architecture"
+    description="an analysis of the core architecture, data flows, and design patterns."
+  />
+  <Card
+    href="./visualizations"
+    icon={<FaChartLine />}
+    title="visualizations"
+    description="a catalog of available and planned visualization styles."
+  />
+  <Card
+    href="./creating-visualizations"
+    icon={<IoIosStats />}
+    title="creating visualizations"
+    description="a guide to engineering new 2d and 3d visualization styles."
+  />
+  <Card
+    href="./debugging"
+    icon={<FaBug />}
+    title="debugging & performance"
+    description="debugging, profiling, and optimizing visualizers in the spotify client."
+  />
+    <Card
+    href="./publishing"
+    icon={<FaPaperPlane />}
+    title="contribution & release"
+    description="the contribution workflow, from code quality and commits to automated releases."
+  />
+</Cards>

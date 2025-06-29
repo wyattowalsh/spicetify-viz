@@ -1,0 +1,105 @@
+---
+title: docs home
+description: everything you need to install, configure, use, and contribute to spicetify-viz
+icon: LuBookOpenText
+---
+
+---
+
+> `spicetify-viz` is a Spotify visualizer based on [spicetify](https://spicetify.app) that serves as an extendible, configurable, beautiful alternative to [`spicetify-visualizer`](https://github.com/Konsl/spicetify-visualizer)
+
+---
+
+## Features
+
+import { Cards, Card } from 'fumadocs-ui/components/card';
+import { Waves, Palette, Codepen, SlidersHorizontal, PackagePlus, Github } from 'lucide-react';
+
+<Cards>
+  <Card
+    icon={<Waves />}
+    title="High-Fidelity Reactivity"
+    description="Powered by the native Web Audio API for real-time FFT analysis. Visuals dance to every beat with unparalleled precision."
+  />
+  <Card
+    icon={<Codepen />}
+    title="Hardware-Accelerated Graphics"
+    description="Built with three.js for high-performance 2D and 3D visuals that leverage GPU acceleration to run smoothly inside Spotify."
+  />
+  <Card
+    icon={<Palette />}
+    title="Dynamic Theming"
+    description="Leverages album artwork to generate a unique, harmonious color palette for every song, creating a beautiful and cohesive visual experience."
+  />
+  <Card
+    icon={<SlidersHorizontal />}
+    title="Deeply Customizable"
+    description="A flexible architecture that allows for extensive user configuration and the creation of entirely new visualizer styles."
+  />
+  <Card
+    icon={<PackagePlus />}
+    title="Modern Toolchain"
+    description="Built using the spicetify-creator toolchain for a seamless, React-based development experience with hot-reloading."
+  />
+  <Card
+    icon={<Github />}
+    title="Open & Collaborative"
+    description="A fully open-source project on GitHub. Contributions, feature ideas, and new visualizers from the community are always welcome."
+  />
+</Cards>
+
+---
+
+## Quick Start
+
+Get up and running with `spicetify-viz` in a few simple steps. For more detailed instructions and configuration options, head over to the [Usage guide](./usage).
+
+<Steps>
+### Prerequisites
+You'll need to have [Spicetify](https://spicetify.app/docs/getting-started) installed and working.
+
+### Installation via Marketplace
+The easiest way to install `spicetify-viz` is through the official Spicetify Marketplace, which handles automatic updates.
+
+1.  Open Spotify and navigate to the `Marketplace` tab on the left sidebar.
+2.  Search for `spicetify-viz`.
+3.  Click `Install`.
+4.  Navigate to the visualizer by clicking the new `spicetify-viz` icon in your sidebar and enjoy!
+</Steps>
+
+For alternative installation methods, see the [Usage guide](./usage).
+
+---
+
+## What's Next?
+
+Now that you have an overview of `spicetify-viz`, here's where you can go next:
+
+<Cards>
+  <Card
+    href="./usage"
+    icon={<SlidersHorizontal />}
+    title="Usage & Configuration"
+    description="Dive deep into all the settings and options to customize your visual experience."
+  />
+  <Card
+    href="./dev-notes/creating-visualizations"
+    icon={<Codepen />}
+    title="Create a Visualizer"
+    description="Learn how to use the framework to build and share your own unique visualizer styles."
+  />
+  <Card
+    href="./contributing"
+    icon={<Github />}
+    title="Contribute"
+    description="Help improve the project by contributing code, reporting bugs, or suggesting features."
+  />
+  <Card
+    href="./roadmap"
+    icon={<PackagePlus />}
+    title="Roadmap"
+    description="Check out what features are planned for future releases of spicetify-viz."
+  />
+</Cards>
+
+---

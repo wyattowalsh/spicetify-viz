@@ -1,0 +1,95 @@
+---
+title: bar spectrum
+description: the quintessential frequency-based bar graph, modernized for advanced creative expression.
+icon: FaChartBar
+---
+
+import { CodeBlock } from 'fumadocs-ui/components/codeblock';
+import { Callout } from 'fumadocs-ui/components/callout';
+
+The archetypal audio visualizer, translating the raw spectrum of sound into a dynamic, dancing bar graph. It's the purest digital representation of sound's anatomy, a timeless classic supercharged with modern rendering capabilities.
+
+-   **Description:** This visualizer maps discrete frequency bins from the audio FFT (Fast Fourier Transform) to rectangular bars. The height of each bar corresponds to the amplitude (volume) of that specific frequency range, creating a pure, immediate, and legible representation of the song's sonic energy.
+-   **Use Case:** Ideal for a clear, immediate, and classic representation of the song's sonic texture. Its extensive customization options allow for anything from a minimal, clean look to a vibrant, complex, and reactive display.
+
+<Callout title="Technical Details">
+-   **Performance Profile:** CPU: Low / GPU: None. This is a highly efficient visualizer, relying solely on the 2D Canvas API.
+-   **How It Works:** It takes the frequency data from an `AnalyserNode` (an array of decibel values for different frequency bins). It then maps a specified range of these bins to the requested number of bars. If `logarithmic` scaling is enabled, the frequency bins are non-uniformly grouped to better match human auditory perception and musical octaves. This dedicates more visual detail to the bass and mid-range frequencies where our ears are most sensitive. The height of each bar is the time-smoothed amplitude of its corresponding frequency bin, processed through an easing function to create fluid motion.
+</Callout>
+
+#### Configuration Options
+
+<CodeBlock title="config/bar-spectrum.ts">
+```ts
+export interface BarSpectrumOptions {
+  // --- Data & Layout ---
+  barCount: number; // Number of bars (e.g., 64, 128). Higher values mean more spectral detail.
+  barWidth?: number; // Width of each bar. Auto-calculated to fill canvas width if not set.
+  gap: number; // Space between bars, in pixels.
+  
+  // If true, scales frequency bins logarithmically. This provides a more "musical" and perceptually
+  // balanced representation, as human hearing is logarithmic. `false` provides a linear, "scientific" view.
+  logarithmic: boolean;
+  
+  frequencyRange: [number, number]; // e.g., [20, 20000]. Focus on a specific frequency range in Hz.
+  mirror: boolean; // If true, mirrors the bars from the center, creating a symmetrical visual.
+  barAlignment: 'center' | 'bottom' | 'top'; // Anchor point from which bars grow.
+  rotation: number; // Static rotation of the entire visualizer in degrees.
+  channel: 'stereo' | 'left' | 'right' | 'mono'; // Visualize left/right channels separately, or a mono mix. 'stereo' often splits the screen.
+
+  // --- Style & Color ---
+  style: 'fill' | 'outline'; // Drawing style for the bars.
+  lineWidth?: number; // Line width in pixels, for 'outline' style.
+  cornerRadius: number; // Radius for rounded corners on the bars.
+
+  // Defines how color is applied to the bars.
+  // - 'solid': A single, uniform color.
+  // - 'gradient': A smooth gradient across all bars.
+  // - 'frequency': Color is mapped to the frequency of each bar (e.g., low frequencies are blue, high are red).
+  // - 'amplitude': Color is mapped to the height/amplitude of each bar.
+  colorMode: 'solid' | 'gradient' | 'frequency' | 'amplitude';
+
+  // For 'solid', the single color to use (e.g., '#fff').
+  // For 'gradient', an array of colors for the gradient stops (e.g., ['#ff0000', '#0000ff']).
+  // For 'frequency' or 'amplitude', this can be a single color (for monochrome mapping) or a gradient array.
+  color: string | string[];
+
+  // For 'gradient' mode, defines the gradient's shape across the full bar array.
+  gradientStyle: 'linear' | 'radial' | 'sweep'; 
+  
+  // For 'frequency' or 'amplitude' modes, defines a specific color palette to map values against.
+  // Overrides `color` if provided. Example: a rainbow palette for frequency mode.
+  palette?: string[];
+  
+  // Applies a subtle, retro chromatic aberration effect by drawing slightly offset red and blue versions of the bars.
+  // Value is the pixel offset. Use a small number (e.g., 1-3).
+  chromaticAberration: number;
+
+  // --- Animation & Reactivity ---
+  // Temporal smoothing (0-1). A high value (e.g., 0.9) creates smooth, fluid height transitions.
+  // A low value (e.g., 0.2) creates a twitchy, highly responsive visual.
+  smoothing: number;
+  
+  // Easing function for bar height changes, affecting the "feel" of the animation.
+  // - 'easeOutElastic': Bouncy, springy effect.
+  // - 'easeOutCubic': Standard, smooth deceleration.
+  // - 'linear': No easing, direct mapping.
+  easing: 'easeOutCubic' | 'easeOutElastic' | 'linear';
+  
+  // Applies a downward force to the bars, making them feel heavier and fall faster.
+  gravity: number;
+  
+  // Applies a subtle, cyclical vertical motion to all bars, synchronized to the beat.
+  // Value is the max amplitude of the vibration in pixels.
+  vibrato: number;
+
+  // If true, draws a 'peak' line above each bar that slowly falls.
+  peakDetection: boolean;
+  
+  // How quickly the peak line falls (e.g., 0.98 for a slow decay, 0.7 for a fast one).
+  peakDecay: number;
+  
+  peakLineColor?: string; // Color of the peak line. Defaults to the main bar color.
+}
+```
+</CodeBlock> 

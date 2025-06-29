@@ -1,0 +1,338 @@
+---
+title: creating visualizations
+description: an engineering guide to building new 2d and 3d visualization styles for spicetify-viz.
+icon: IoIosStats
+---
+
+import { Steps } from 'fumadocs-ui/components/steps';
+import { File, Files } from 'fumadocs-ui/components/files';
+import { Callout } from 'fumadocs-ui/components/callout';
+import { Tab, Tabs } from 'fumadocs-ui/components/tabs';
+import { Mermaid } from '@/components/mdx/mermaid';
+
+---
+
+this guide covers the process of engineering a new visualizer. it details how to implement the required `visualizer` interface, define settings, and apply modern performance patterns for both 2d and 3d rendering, with a strong emphasis on gpu-accelerated techniques.
+
+## The Visualizer Contract
+
+every visualizer is a self-contained module that implements a core interface, allowing the engine to manage it without knowing its internal details. this interface is defined by the abstract base classes: `basevisualizer` for 2d and `basevisualizer3d` for 3d.
+
+<Mermaid
+  chart={`
+classDiagram
+    direction BT
+    
+    class BaseVisualizer {
+        <<interface>>
+        # readonly canvas: HTMLCanvasElement
+        # readonly audio: AudioService
+        # readonly dataArray: Uint8Array
+        + draw(theme, settings): void
+        + onActivated(): void
+        + onDeactivated(): void
+        + onResize(width, height): void
+    }
+
+    class BaseVisualizer3D {
+        <<abstract>>
+        # readonly renderer: WebGLRenderer | GPURenderer
+        # readonly scene: Scene
+        # readonly camera: PerspectiveCamera
+        + draw(theme, settings)*: void
+    }
+    
+    class My2DVisualizer {
+        + draw(theme, settings): void
+    }
+
+    class My3DVisualizer {
+        # myMesh: InstancedMesh
+        + draw(theme, settings): void
+        + onDeactivated(): void
+    }
+
+    BaseVisualizer <|-- BaseVisualizer3D
+    BaseVisualizer <|-- My2DVisualizer
+    BaseVisualizer3D <|-- My3DVisualizer
+
+    note for BaseVisualizer "<strong>fa:fa-cube 2D Contract</strong><br/>Handles Canvas, Audio, and Lifecycle.<br/>Requires implementing 'draw()'."
+    note for BaseVisualizer3D "<strong>fa:fa-cubes 3D Contract</strong><br/>Abstracts Three.js & Renderer boilerplate.<br/>Requires implementing 'draw()' and resource cleanup."
+    note for My2DVisualizer "<strong>fa:fa-chart-pie Concrete 2D Example</strong>"
+    note for My3DVisualizer "<strong>fa:fa-th Concrete 3D Example</strong>"
+    
+    classDef abstract fill:#fffde7,stroke:#f57f17,color:#000
+    classDef concrete fill:#e8f5e9,stroke:#1b5e20,color:#000
+    class BaseVisualizer,BaseVisualizer3D abstract
+    class My2DVisualizer,My3DVisualizer concrete
+`}
+/>
+
+the key methods you must be concerned with are:
+-   `draw(theme, settings)`: the core render method, called up to 60 times per second. this is a "hot path" and must be highly performant.
+-   `onactivated()`: called once when the visualizer becomes active. use for one-time setup and resource allocation.
+-   `ondeactivated()`: called once when the visualizer is switched out. use for cleanup to prevent memory leaks (e.g., disposing of `three.js` geometries, materials, and textures). **this is mandatory for all 3d visualizers.**
+-   `onresize(width, height)`: called when the canvas is resized. use to update layouts, camera aspect ratios, projection matrices, etc.
+
+## Building a 2D Visualizer
+
+<Steps>
+
+### 1. Create the Class
+
+create a new file in `/src/visualizers/` and define a class extending `basevisualizer`.
+
+<Files>
+<File title="src/visualizers/my-2d-visualizer.ts" />
+</Files>
+
+```typescript
+// src/visualizers/my-2d-visualizer.ts
+import { BaseVisualizer } from './base';
+import { Theme, Settings } from '../core/types';
+import { settingsSchema } from '../core/settings';
+import { z } from 'zod';
+
+// Infer the settings type directly from the Zod schema for compile-time safety.
+type MyVisualizerSettings = z.infer<typeof settingsSchema.shape.myVisualizer>;
+
+export class My2DVisualizer extends BaseVisualizer {
+    public draw(theme: Theme, settings: Settings): void {
+        // Your rendering logic goes here.
+    }
+}
+```
+
+### 2. Implement the Draw Method
+
+the `draw` method is the heart of your visualizer. it's called on every animation frame.
+
+```typescript
+// ...inside My2DVisualizer class
+public draw(theme: Theme, settings: Settings): void {
+    // Cast the generic settings object to our specific, inferred type.
+    const vizSettings = settings as MyVisualizerSettings;
+
+    // 1. Fetch latest audio frequency data into our pre-allocated array.
+    // This is a zero-allocation operation, critical for performance.
+    this.audio.getAnalyser().getByteFrequencyData(this.dataArray);
+
+    // 2. Clear or fade the canvas. A low-alpha fill creates a "motion blur"
+    // effect, which is often visually appealing and more performant than clearRect.
+    this.ctx.fillStyle = 'rgba(0, 0, 0, 0.2)';
+    this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+
+    // 3. Cache settings and theme lookups outside of any loops.
+    const barCount = vizSettings.barCount;
+    const barColor = theme.primary;
+    
+    // 4. Implement your rendering logic using the Canvas 2D API.
+    // ...
+}
+```
+
+### 3. Register the Visualizer
+
+finally, add your new visualizer to the registry in `/src/visualizers/index.ts`. the key must match the key used in the settings schema.
+
+<Files>
+<File title="src/visualizers/index.ts" />
+</Files>
+
+```typescript
+// src/visualizers/index.ts
+// ...
+import { My2DVisualizer } from './my-2d-visualizer';
+
+export const visualizers = {
+  // ...other visualizers
+  'my-visualizer': {
+    name: 'My 2D Visualizer',
+    visualizer: My2DVisualizer,
+  },
+};
+```
+
+</Steps>
+
+## Building a 3D Visualizer (WebGPU First)
+
+the process for a 3d visualizer is similar, but you extend `basevisualizer3d`, which provides a pre-configured `three.js` scene, camera, and renderer.
+
+<Callout title="WebGPU is the Standard" type="warning">
+all new 3d visualizers **must** be engineered for **webgpu**. its modern api, explicit control, and performance advantages—especially for general-purpose gpu (gpgpu) computation—make it the only choice for complex, high-performance visuals. webgl is considered a legacy fallback.
+</Callout>
+
+<Steps>
+
+### 1. Create the Class
+
+extend `basevisualizer3d`. the base class handles the core `three.js` and webgpu setup.
+
+```typescript
+// src/visualizers/my-3d-visualizer.ts
+import { BaseVisualizer3D } from './base-3d';
+import { Theme, Settings, AudioService } from '../core/types';
+import { settingsSchema } from '../core/settings';
+import * as THREE from 'three';
+import { z } from 'zod';
+
+type My3DSettings = z.infer<typeof settingsSchema.shape.my3dVisualizer>;
+
+export class My3DVisualizer extends BaseVisualizer3D {
+    private mesh: THREE.InstancedMesh;
+    private readonly DUMMY = new THREE.Object3D(); // Re-usable object for matrix calculation
+
+    constructor(canvas: HTMLCanvasElement, audio: AudioService) {
+        super(canvas, audio);
+        // Setup your Three.js objects here in the constructor.
+        const geometry = new THREE.BoxGeometry(1, 1, 1);
+        const material = new THREE.MeshStandardMaterial({ color: 'white' });
+        this.mesh = new THREE.InstancedMesh(geometry, material, 100);
+        this.scene.add(this.mesh);
+    }
+
+    public draw(theme: Theme, settings: Settings): void {
+        // 3D rendering logic goes here.
+    }
+    
+    public onDeactivated(): void {
+        // MANDATORY: Dispose of Three.js resources to prevent memory leaks.
+        this.mesh.geometry.dispose();
+        this.mesh.material.dispose();
+    }
+}
+```
+
+### 2. Implement the Draw Method
+
+this is where you'll update object transforms, shader uniforms, etc., based on audio data, before the base class calls `renderer.render()`.
+
+```typescript
+// ...inside My3DVisualizer class
+public draw(theme: Theme, settings: Settings): void {
+    const vizSettings = settings as My3DSettings;
+    this.audio.getAnalyser().getByteFrequencyData(this.dataArray);
+
+    const accentColor = new THREE.Color(theme.accent);
+
+    // Highly efficient: update transforms on instances instead of
+    // creating/destroying objects in the render loop.
+    for (let i = 0; i < 100; i++) {
+        const audioValue = this.dataArray[i] / 255.0; // Normalize to [0, 1]
+        
+        // Use a single dummy object to compute matrices to avoid heap allocation.
+        this.DUMMY.position.set(i - 50, audioValue * 10, 0); // Example position
+        this.DUMMY.scale.setScalar(audioValue);
+        this.DUMMY.updateMatrix();
+        
+        this.mesh.setMatrixAt(i, this.DUMMY.matrix);
+        this.mesh.setColorAt(i, accentColor);
+    }
+    
+    // Flag buffers for update on the GPU.
+    this.mesh.instanceColor.needsUpdate = true;
+    this.mesh.instanceMatrix.needsUpdate = true;
+}
+```
+
+<Callout>
+for 3d, it is critical to push as much logic as possible into **gpu shaders**. the javascript `draw` loop should *only* be used to update object positions and pass audio data into shader `uniforms`. animating vertices or colors in javascript is a performance anti-pattern.
+</Callout>
+
+</Steps>
+
+
+## Advanced Pattern: GPGPU with Compute Shaders
+
+for highly complex visualizers like particle systems or fluid simulations, rendering logic is insufficient. you need to run physics or state calculations on the gpu itself. this is achieved with **compute shaders**.
+
+<Callout title="What is a Compute Shader?">
+a compute shader is a program that runs on the gpu but is not part of the traditional rendering pipeline. it takes structured data buffers as input, performs parallel computations on them, and writes the results to an output buffer. this output can then be used by a vertex shader to position objects, making it possible to simulate millions of independent particles at high frame rates.
+</Callout>
+
+### Conceptual Workflow
+
+1.  **data setup:** create two `storagetexture` or `storagebuffer` resources (ping-pong buffers) to hold particle data (e.g., position, velocity).
+2.  **compute pass:** on each frame, dispatch a compute shader.
+    -   **input:** the "read" buffer from the previous frame.
+    -   **logic:** the shader updates each particle's position based on velocity, audio data, user settings (passed as uniforms), and time delta.
+    -   **output:** the new particle data is written to the "write" buffer.
+3.  **render pass:** use the "write" buffer from the compute pass as a vertex attribute in a standard render pipeline. the vertex shader's only job is to read a particle's position from the buffer and place the vertex there.
+4.  **swap buffers:** the "write" buffer becomes the "read" buffer for the next frame.
+
+this pattern keeps the entire simulation loop on the gpu, minimizing costly cpu-gpu data transfers and leveraging massive parallelism.
+
+## Advanced Pattern: Composable & Layer-Based Visualizers
+
+to build truly complex and endlessly customizable visualizers, consider a composable, layer-based architecture. this pattern, exemplified by the `mesh-deformation` visualizer's `deformationlayers`, treats individual visual effects as modular, stackable "layers."
+
+-   **concept:** instead of a single, monolithic `draw` method, the visualizer's logic is broken down into a series of independent effect modules. each module is a pure function or a small class that takes the base state (e.g., geometry, audio data) and applies a specific transformation.
+-   **implementation:**
+    1.  define a common interface for an "effect layer" (e.g., `interface effectlayer { apply(context, data): void; }`).
+    2.  create a library of these effects (e.g., `noiselayer`, `twistlayer`, `ripplelayer`).
+    3.  the visualizer's configuration (`settings`) defines which layers are active and in what order.
+    4.  in the `draw` loop, iterate through the active layers and apply them sequentially.
+
+-   **benefits:**
+    -   **customization:** users can mix and match layers to create unique visual combinations without any code changes.
+    -   **reusability:** effect layers can be reused across different visualizers.
+    -   **maintainability:** isolates complexity into smaller, more manageable, and individually testable units.
+
+this approach transforms a visualizer from a single effect into a mini rendering engine, offering vastly more creative potential.
+
+
+## Defining Settings
+
+a visualizer's settings are defined in a single location: `/src/core/settings.ts`. the ui is generated automatically from this schema.
+
+<Steps>
+
+### 1. Update the Schema
+
+add a new object to the main `settingsschema` with a key that matches your visualizer's registration key.
+
+<Files>
+<File title="src/core/settings.ts" />
+</Files>
+
+```typescript
+// src/core/settings.ts
+// ...
+export const settingsSchema = z.object({
+    // ...other visualizer schemas
+    'my-visualizer': z.object({
+        barCount: z.object({
+            label: 'Bar Count',
+            type: 'slider',
+            min: 10,
+            max: 512,
+            step: 2,
+            defaultValue: 128,
+        }),
+        someToggle: z.object({
+            label: 'Enable Cool Feature',
+            type: 'toggle',
+            defaultValue: true,
+        }),
+    }),
+});
+```
+
+### 2. Add to Defaults
+
+the `defaultsettings` object is generated from the schema. ensure your visualizer's default configuration is included.
+
+### 3. Use in Visualizer
+
+the settings are passed to your `draw` method, where you can use them to control rendering. always cast the settings to the specific type inferred from your schema for type safety.
+
+</Steps>
+
+## Performance Is Not Optional
+
+-   **zero allocation on hot paths:** never allocate new objects (`new THREE.Vector3()`, `[]`, `{}`) inside the `draw` loop. pre-allocate and reuse objects.
+-   **use instancing:** for large numbers of similar objects, `instancedmesh` is mandatory. it allows you to render millions of objects with a single draw call.
+-   **offload to gpu:** do not animate in javascript. pass raw data (audio, time) to the gpu via uniforms and perform all animation logic in vertex or fragment shaders.
+-   **use compute shaders:** for any n-body simulation (particles, fluids, etc.), use compute shaders to keep physics calculations on the gpu.
+-   **throttle expensive operations:** if an operation must be done on the cpu, ensure it is throttled or debounced and not run on every frame.

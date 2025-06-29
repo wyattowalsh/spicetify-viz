@@ -1,0 +1,14 @@
+---
+description: 
+globs: 
+alwaysApply: true
+---
+# Performance Standards
+
+Performance is a primary feature. The goal is a consistent 60 FPS. Refer to `[debugging.mdx](mdc:docs/content/docs/dev-notes/debugging.mdx)` for profiling techniques.
+
+- **Zero Allocation on Hot Paths**: **Never** allocate objects (`new THREE.Vector3()`, `[]`, `{}`) inside the `draw()` loop or any function called by it. Pre-allocate and reuse objects. This is the most critical performance rule to avoid garbage collection pauses.
+- **GPU Offloading**: Do not perform animation logic in JavaScript. Pass raw data (audio, time, settings) to the GPU via uniforms/storage buffers and perform all animation logic in WGSL shaders.
+- **Instancing**: For large numbers of similar objects in 3D, using `THREE.InstancedMesh` is **mandatory**.
+- **Canvas Context State**: In 2D, batch rendering operations by state (`fillStyle`, `strokeStyle`) to minimize context switching.
+- **High-DPI Displays**: Canvases must be scaled correctly using `window.devicePixelRatio` to avoid blurriness.

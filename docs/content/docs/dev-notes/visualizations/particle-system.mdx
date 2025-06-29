@@ -1,0 +1,104 @@
+---
+title: particle system
+description: a gpgpu-powered engine for choreographing galaxies of light with sound.
+icon: FaBraille
+---
+
+import { CodeBlock } from 'fumadocs-ui/components/codeblock';
+import { Callout } from 'fumadocs-ui/components/callout';
+
+Unleashes a torrent of thousands of dynamic particles, creating a swirling, energetic system that ebbs and flows with the music. This is not just a particle system; it's a generative engine for creating emergent, complex behavior from a set of simple, stackable rules. From gentle ambient fields to explosive sonic novas, you are the choreographer.
+
+-   **Description:** This visualizer uses a modular GPGPU engine to simulate and render vast quantities of particles. The system is built on two core concepts: **Emitters**, which define where and how particles are born, and **Forces**, which define the physical influences that guide their movement.
+-   **Use Case:** Creates an atmospheric and highly engaging visual experience. It can be configured for anything from a subtle, calming starfield to a chaotic, explosive nebula or a structured, flowing river of light.
+
+<Callout title="Technical Details">
+-   **Performance Profile:** CPU: Low / GPU: Very High. Performance is directly tied to particle count.
+-   **GPGPU Pipeline:** This visualizer leverages **WebGPU compute shaders** to offload all physics calculations.
+    1.  **State Buffers:** Particle data (position, velocity, age, etc.) is stored in a pair of `Storage Buffers`. These are used in a "ping-pong" configuration: on each frame, the compute shader reads from one buffer and writes the updated state to the other.
+    2.  **Compute Step:** A compute shader is dispatched with one thread per particle. It integrates all active `Forces` (gravity, noise, audio-reactivity) to calculate the particle's new state. If a particle's life has expired, it is reset based on the properties of one of the `Emitters`.
+    3.  **Render Step:** A separate render pipeline draws the particles using a single instanced draw call. A small base geometry (like a quad) is instanced `particleCount` times. The vertex shader reads the per-instance data directly from the updated storage buffer, positioning each particle correctly. This is the most efficient method for rendering massive quantities of objects.
+</Callout>
+
+#### Configuration Options
+
+<CodeBlock title="config/particle-system.ts">
+```ts
+export interface ParticleSystemOptions {
+  // --- Simulation ---
+  particleCount: number; // Max particles. High counts (>50,000) are demanding.
+
+  // --- Particle Visuals ---
+  particle: {
+    shape: 'circle' | 'square' | 'texture';
+    textureUrl?: string;
+    minSize: number;
+    maxSize: number;
+    // Base color can be a single color or a gradient array for the particle's lifetime.
+    color: string | string[];
+    // Adds a fake motion blur effect by fading the canvas each frame.
+    motionBlur: boolean;
+    // 0 = no fade, infinite trails. 0.9 = very fast fade, short trails.
+    motionBlurDecay?: number; 
+  };
+
+  // --- Emitters ---
+  // An array of sources that create particles.
+  emitters: {
+    // Number of particles to emit per second.
+    rate: number;
+    // Initial lifespan of emitted particles in seconds. 0 for infinite.
+    lifespan: number;
+    shape: 'point' | 'line' | 'circle' | 'box';
+    shapeOptions: {
+      size?: number; // e.g., radius of circle.
+      position?: [number, number]; // center position.
+    },
+    initialVelocity: {
+      // Directional force.
+      direction?: [number, number];
+      // Randomness/spread of the initial velocity.
+      spread?: number;
+      // Initial speed.
+      speed?: number;
+    }
+  }[];
+
+  // --- Forces ---
+  // An array of forces applied to all particles every frame.
+  forces: {
+    type: 'gravity' | 'vortex' | 'noise' | 'audio';
+    
+    // For 'gravity': A constant directional force.
+    vector?: [number, number];
+
+    // For 'vortex': Creates a rotating force field.
+    position?: [number, number];
+    strength?: number; // Can be negative to reverse direction.
+
+    // For 'noise': Uses a curl noise field for organic, flowing movement.
+    noiseScale?: number;
+    noiseStrength?: number;
+
+    // For 'audio': The primary reactivity mechanism.
+    // Which audio feature drives the force.
+    frequency?: 'bass' | 'mid' | 'treble' | 'volume' | 'beat';
+    // How the audio affects particles.
+    // - 'attract': Pulls particles towards a point.
+    // - 'repel': Pushes particles away from a point.
+    // - 'accelerate': Pushes particles in a direction.
+    behavior?: 'attract' | 'repel' | 'accelerate';
+    strength?: number;
+    // The point/direction for the audio force.
+    locus?: [number, number];
+  }[];
+
+  // --- Plexus Effect ---
+  // If true, draws lines between nearby particles.
+  linkParticles: boolean;
+  linkDistance?: number;
+  linkWidth?: number;
+  linkColor?: string; // 'particle' to match particle color.
+}
+```
+</CodeBlock> 

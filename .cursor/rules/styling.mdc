@@ -1,0 +1,12 @@
+---
+description: 
+globs: 
+alwaysApply: true
+---
+# Styling and Components
+
+Refer to `[setup.mdx](mdc:docs/content/docs/dev-notes/setup.mdx)` for the styling philosophy.
+
+- **Tailwind CSS Prefix**: All Tailwind utility classes **must** be prefixed with `sv-` (e.g., `sv-flex`, `sv-text-white`). This is configured in `tailwind.config.mjs` and is critical to prevent style collisions with the Spotify client's CSS.
+- **`shadcn-ui`**: UI components are managed by `shadcn-ui`. To add a new component, use the CLI: `pnpm exec shadcn-ui@latest add <component-name>`. Do not add component libraries as npm dependencies. This provides full control over the component code, which is added directly to `spicetify-viz/src/components/ui`.
+- **Theming**: Colors are managed via CSS variables, which are dynamically updated by the `[theme.ts](mdc:spicetify-viz/src/core/theme.ts)` service based on album art.

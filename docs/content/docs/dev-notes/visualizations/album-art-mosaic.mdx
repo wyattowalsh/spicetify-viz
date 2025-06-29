@@ -1,0 +1,82 @@
+---
+title: album art mosaic
+description: deconstructs and reanimates the album art into a living mosaic.
+icon: FaThLarge
+---
+
+import { CodeBlock } from 'fumadocs-ui/components/codeblock';
+import { Callout } from 'fumadocs-ui/components/callout';
+
+an artistic deconstruction of the album art, transforming the static image into a living, breathing mosaic that pulses, shifts, and shatters in time with the music.
+
+-   **description:** this visualizer samples the current song's album art, divides it into a grid of tiles, and independently animates each tile's properties (scale, opacity, position, rotation) in response to different audio frequencies.
+-   **use case:** a highly artistic and theme-appropriate visual that directly integrates the song's own branding and color palette into the animation.
+
+<Callout title="technical details">
+-   **performance profile:** cpu: low-to-moderate / gpu: low
+-   **how it works:** on song change, the album art is drawn to a hidden canvas. the visualizer then creates a grid of "tile" objects, each storing the source `(x, y)` coordinates from the art. in the render loop, it iterates this grid and draws each tile to the main canvas using `ctx.drawimage()`, applying transformations based on audio data and settings. it's an efficient, purely 2d canvas-based effect, with performance scaling linearly with the number of tiles (`rows` * `columns`).
+</Callout>
+
+#### Configuration Options
+<CodeBlock title="config/album-art-mosaic.ts">
+```ts
+export interface AlbumArtMosaicOptions {
+  // --- Grid ---
+  // Number of rows in the mosaic. Higher values are more detailed but more CPU-intensive.
+  // Recommended: 16-64
+  rows: number; 
+  // Number of columns in the mosaic.
+  // Recommended: 16-64
+  columns: number; 
+  // Space between tiles, in pixels. Use negative values to create overlap.
+  gap: number; 
+  
+  // --- Tile Style ---
+  // The geometric shape of each tile.
+  tileShape: 'square' | 'circle' | 'hexagon'; 
+  // For 'square' tiles, the corner radius (0 for sharp corners). Creates a "squircle" effect.
+  tileRounding: number; 
+  // For 'hexagon' tiles, whether to render pointy-topped or flat-topped hexagons.
+  hexOrientation: 'pointy' | 'flat';
+  
+  // --- Animation & Reactivity ---
+  // The overall pattern of motion applied to the tiles.
+  // - pulse: All tiles react in unison.
+  // - wave: A sine wave travels across the grid.
+  // - ripple: Effects emanate from the center on beat hits.
+  // - random: Each tile reacts independently.
+  animationMode: 'pulse' | 'wave' | 'ripple' | 'random';
+  
+  reactivity: {
+    // What audio feature drives the primary scaling animation of the tiles.
+    // 'beat' provides sharp, percussive reactions. 'volume' is smoother.
+    scale: 'volume' | 'bass' | 'mid' | 'treble' | 'beat';
+
+    // The maximum scale factor. 1.5 means tiles can grow up to 150% of their size.
+    maxScale: number;
+    
+    // What drives the perceived depth (z-axis offset simulation) of the tiles via parallax.
+    zOffset: 'volume' | 'mid' | 'bass' | 'none';
+
+    // Maximum pixel offset for the parallax effect.
+    maxZOffset: number;
+    
+    // Applies a subtle, random positional offset to each tile on every frame for a jittery, unstable effect.
+    jitter: 'none' | 'subtle' | 'extreme';
+
+    // What color from the theme to tint reactive tiles.
+    colorTint: 'accent' | 'primary' | 'secondary' | 'none';
+    
+    // Opacity of the color tint (0-1).
+    tintStrength: number;
+    
+    // What drives the rotation of individual tiles.
+    // 'tempo' will try to sync rotation to the song's detected BPM.
+    rotation: 'volume' | 'tempo' | 'bass' | 'none';
+
+    // Maximum rotation in degrees.
+    maxRotation: number;
+  }
+}
+```
+</CodeBlock> 

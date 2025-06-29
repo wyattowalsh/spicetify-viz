@@ -1,0 +1,142 @@
+---
+title: shader art
+description: a webgpu-powered sandbox for audio-reactive generative art in wgsl.
+icon: FaCode
+---
+
+import { CodeBlock } from 'fumadocs-ui/components/codeblock';
+import { Callout } from 'fumadocs-ui/components/callout';
+
+The ultimate canvas for creative expression. This visualizer hands you the raw power of the GPU, allowing you to write or use custom WGSL shaders to create anything from psychedelic patterns and complex fractals to audio-reactive generative art. It is a portal to the world of creative coding, directly inside Spicetify.
+
+-   **Description:** This visualizer pipes a rich set of audio, timing, and user input data directly into a custom fragment shader. The user provides the shader code, and the engine handles the WebGPU render pipeline, giving the creator a powerful, immediate, and high-performance sandbox.
+-   **Use Case:** For advanced users and developers who want complete creative control to design unique, intricate, and computationally efficient visualizers. The possibilities are limited only by your imagination and skill in shader programming.
+
+<Callout title="WGSL First" type="warning">
+This visualizer is designed for **WebGPU Shading Language (WGSL)** as the primary target. While legacy GLSL fragment shaders (`.frag`) are supported via on-the-fly transpilation, all new development and built-in uniforms are optimized for WGSL.
+</Callout>
+
+<Callout title="Technical Details">
+-   **Performance Profile:** CPU: Very Low / GPU: Variable (entirely dependent on shader complexity).
+-   **Render Pipeline:** The setup is a simple but powerful WebGPU render pipeline. A single full-screen quad is rendered, and your provided **fragment shader** calculates the color for every pixel. The core engine populates a series of `Bind Group`s with uniform and storage buffers containing real-time data, which are made available to your shader code.
+</Callout>
+
+#### Configuration Options
+The configuration's main purpose is to load your shader and define a dynamic UI for your custom uniforms.
+<CodeBlock title="config/shader-art.ts">
+```ts
+export interface ShaderArtOptions {
+  // URL to the .wgsl or .frag (legacy) shader file.
+  shaderUrl: string;
+
+  // Define a dynamic UI for your shader. The values will be passed as a `vec4` 
+  // to the `u_custom_uniforms` variable in your shader.
+  customUniforms?: {
+    label: string;
+    type: 'slider' | 'color' | 'boolean';
+    // For 'color', the value will be packed into the vec4.
+    // For 'slider' and 'boolean', the value is passed in the `.x` component.
+  }[]; // Max 4 custom uniforms.
+}
+```
+</CodeBlock>
+
+### WGSL Shader API Specification
+This is the public API available to your WGSL fragment shader.
+
+#### Entry Point
+Your shader must have a fragment entry point named `main` that returns a `vec4<f32>` color.
+```wgsl
+@fragment
+fn main(@location(0) uv: vec2<f32>) -> @location(0) vec4<f32> {
+  // ... your code here
+  return vec4<f32>(uv.x, uv.y, 0.0, 1.0);
+}
+```
+
+#### Built-in Uniforms & Buffers
+These are available in `Bind Group 0`.
+
+<CodeBlock title="shader.wgsl">
+```wgsl
+// Uniforms that change every frame.
+@group(0) @binding(0)
+var<uniform> u_frame_data: FrameData;
+
+// Real-time audio data.
+@group(0) @binding(1)
+var<storage, read> u_audio: AudioData;
+
+// Textures.
+@group(0) @binding(2)
+var u_prev_frame: texture_2d<f32>;
+@group(0) @binding(3)
+var u_album_art: texture_2d<f32>;
+@group(0) @binding(4)
+var u_sampler: sampler;
+
+struct FrameData {
+  time: f32, // Time since load in seconds.
+  time_delta: f32, // Time since last frame in seconds.
+  song_progress: f32, // 0.0 to 1.0.
+  
+  resolution: vec2<f32>, // Canvas resolution in pixels.
+  mouse_pos: vec2<f32>, // Mouse position in pixels.
+  mouse_down: u32, // 1 if mouse is down, 0 otherwise.
+
+  // Dynamically populated by the UI. x, y, z, w correspond to the 4 custom uniform slots.
+  custom_uniforms: vec4<f32>, 
+  
+  // Theme colors
+  color_primary: vec3<f32>,
+  color_secondary: vec3<f32>,
+  color_accent: vec3<f32>,
+};
+
+struct AudioData {
+  // Average volume (0-1), smoothed.
+  volume: f32,
+  // Pulses from 1.0 to 0.0 on beat detection.
+  beat: f32,
+  // Full FFT spectrum (2048 bins), normalized 0-1.
+  fft: array<f32, 2048>,
+  // Raw waveform data (2048 samples), normalized 0-1.
+  waveform: array<f32, 2048>,
+};
+
+// --- Example Usage ---
+
+// Get bass value by averaging the first few FFT bins
+let bass = (u_audio.fft[2] + u_audio.fft[3] + u_audio.fft[4]) / 3.0;
+
+// Sample the previous frame for feedback effects
+let prev_color = textureSample(u_prev_frame, u_sampler, uv);
+
+// Use a custom slider value
+let zoom = u_frame_data.custom_uniforms.x * 10.0;
+```
+</CodeBlock>
+
+#### Deprecated GLSL Uniforms
+The following uniforms are available for legacy GLSL shaders but are now deprecated. New shaders should use the WGSL `storage` buffer API.
+- `uniform float u_time;`
+- `uniform float u_delta_time;`
+- `uniform float u_song_progress;`
+- `uniform float u_volume;`
+- `uniform float u_beat;`
+- `uniform sampler2D u_frequencies;` (FFT data)
+- `uniform sampler2D u_waveform;`
+- `uniform sampler2D u_audio_history;`
+- `uniform vec2 u_resolution;`
+- `uniform vec2 u_mouse;`
+- `uniform bool u_mouse_down;`
+- `uniform sampler2D u_album_art;`
+- `uniform sampler2D u_prev_frame;`
+- `uniform vec3 u_color_primary;`
+- `uniform vec3 u_color_secondary;`
+- `uniform vec3 u_color_accent;`
+- `uniform float u_setting_1; ... u_setting_4;`
+
+<Callout title="community contributions">
+the shader art visualizer is designed to be extensible. we support a community repository where users can share and download `.frag` (glsl) and `.wgsl` shader files to use directly within `spicetify-viz`.
+</Callout> 

@@ -1,0 +1,147 @@
+---
+title: debugging & performance
+description: a guide to debugging, profiling, and optimizing visualizers in the spotify client.
+icon: FaBug
+---
+
+import { Steps } from 'fumadocs-ui/components/steps';
+import { Callout } from 'fumadocs-ui/components/callout';
+
+---
+
+A guide to the essential techniques for debugging and performance profiling within the Spotify client's embedded Chromium environment. The unwavering goal is a fluid, stutter-free 60 frames per second (FPS).
+
+<Steps>
+
+### 1. Enable Chromium Developer Tools
+
+First, enable developer tools for the Spotify client. This is a one-time setup.
+
+```bash
+spicetify enable-devtools
+```
+
+Restart the Spotify client. You can now right-click anywhere and select "Inspect Element" to open the Chromium Developer Tools, your primary interface for debugging.
+
+### 2. Master the Console
+
+-   **Live API Interaction:** Use the console to interact directly with the live `Spicetify` and `Spicetify.Player` objects. For example, `Spicetify.Player.data` inspects the current track's metadata in real-time.
+-   **Debug Scoping via `window`:** To inspect internal application state (e.g., a signal's value or a visualizer instance), temporarily expose it to the global `window` object in your code (e.g., `(window as any).app = this;`). This makes it accessible for inspection in the console.
+    <Callout type="danger" title="Warning">
+    This is for temporary debugging only. **All `window` assignments must be removed before committing code.** They will fail the CI pipeline.
+    </Callout>
+-   **Logpoints:** Instead of littering your code with `console.log`, use logpoints. In the "Sources" tab of DevTools, right-click any line number and select "Add logpoint...". You can log any variable in scope (e.g., `{ x: particle.x, y: particle.y }`). The output appears in the console without requiring code modification or reloads.
+
+### 3. Debugging with React Developer Tools
+
+For debugging the React component tree and, most importantly, the signal-based state management, the standalone React Developer Tools are required.
+
+1.  **Install the Dev Tools package:**
+    ```bash
+    # Install globally for easy access across projects
+    pnpm add -g react-devtools
+    ```
+
+2.  **Run the Dev Tools:** In a separate terminal, launch the standalone application:
+    ```bash
+    react-devtools
+    ```
+
+3.  **Bridge Your App to the Tools:** Add the following import to the **very top** of `spicetify-viz/src/app.tsx`.
+    ```tsx
+    // Must be the first import to connect successfully.
+    import 'react-devtools';
+    // ... rest of your application imports
+    ```
+    The React Developer Tools window will now automatically connect. In the "Components" tab, you can inspect props and view the state of hooks and signals. The "Profiler" is key for diagnosing what caused a component to re-render. With signals, you should see very few re-renders; instead, focus on how signal values are changing and propagating through the component tree.
+
+### 4. Performance Profiling
+
+If your visualizer is lagging, use the "Performance" tab in DevTools. The budget for each frame is **16.7ms** to maintain 60 FPS.
+
+1.  **Record a Profile:** Go to the "Performance" tab. Click "Record" (`Cmd/Ctrl + E`), let your visualizer run for 5-10 seconds during an intense moment, then click "Stop".
+2.  **Analyze the Flame Chart:**
+    -   **Frames Track:** Look for **red-topped bars**. These are "long frames" that dropped below 60 FPS. Click one to zoom the main flame chart to that problematic moment.
+    -   **Main Thread Breakdown:** This chart shows the JavaScript call stack. The entry point for your visualizer is the **`Animation Frame Fired`** block.
+    -   **Identify "Long Tasks":** Any task with a red triangle is a "Long Task" (>50ms) that blocked the main thread and caused stutter. These are your top optimization targets.
+    -   **Look for Wide Bars:** A "wide" function bar means it took a long time to execute. Follow the chain of wide bars down to find the root cause.
+3.  **Diagnose with the Layers Panel:** In DevTools, go to More Tools > Layers. This panel gives you an interactive 3D view of all compositor layers. For this project, you should ideally see only one or two layers for the visualizer canvas. If you see many unexpected layers, it means certain CSS properties (like `transform: translateZ(0)` or `will-change`) are unintentionally promoting elements, which consumes VRAM and can severely hurt performance. Use this to diagnose canvas and CSS performance issues that are invisible in the flame chart.
+4.  **Optimize:** This analysis pinpoints which function in your `draw` method is most expensive, telling you where to focus your efforts (e.g., caching values, reducing calculations, or offloading work to a Web Worker or WebGPU).
+
+<Callout title="Common Performance Bottlenecks">
+- **Memory Allocation (Garbage Collection):** The number one enemy of smooth animation. If purple "GC event" blocks in the flame chart align with your long frames, you are allocating memory inside the `draw()` loop. **Pre-allocate everything possible** outside the loop.
+- **Expensive Math:** Avoid trigonometric functions (`sin`, `cos`) or square roots inside tight loops. Consider approximations or lookup tables. `x * x` is always faster than `Math.pow(x, 2)`.
+- **Canvas Context Thrashing:** Every change to the 2D context's state (`ctx.fillStyle`, `ctx.strokeStyle`) has a cost. Batch rendering operations by state (e.g., draw all red objects, then all blue objects).
+- **Unnecessary Redrawing:** Don't redraw static elements on every frame. Use multiple layered canvases: a static background drawn once, and a dynamic foreground cleared and redrawn in the main loop.
+</Callout>
+
+### 5. WebGPU & Shader Debugging
+
+Debugging shaders is difficult as they execute on the GPU, outside the JS environment.
+
+#### The "Poor Man's Debugger": Outputting Values as Colors
+
+The simplest way to inspect a value in a shader is to output it as a color.
+
+```glsl
+// In your fragment shader (WGSL or GLSL)
+// Problem: Is my `v_someValue` varying being passed correctly from the vertex shader?
+// Solution: Output it directly as a grayscale color.
+// If the object is black, the value is 0. If it's white, the value is 1.
+// This gives you immediate visual feedback.
+gl_FragColor = vec4(vec3(v_someValue), 1.0);
+```
+
+#### Frame-by-Frame Inspection with Spector.js
+
+For serious WebGPU debugging, a tool like [Spector.js](https://spector.babylonjs.com/) is indispensable.
+
+1.  **Installation:** Install the Spector.js browser extension.
+2.  **Capture a Frame:** Open DevTools in Spotify. The Spector.js extension will add a new tab. Click its record button to capture a single, complete frame.
+3.  **Analysis:** Spector provides a complete, sequential list of every GPU command executed. You can:
+    -   **Inspect State:** See the exact state of the GPU before any draw call (blend modes, depth testing, etc.).
+    -   **View Buffers & Textures:** See what your textures and buffers look like at any stage. This is crucial for debugging GPGPU pipelines.
+    -   **Examine Shaders & Uniforms:** Select a draw call and see the exact shader code used and the values of all uniform/storage buffers passed to it. This is invaluable for finding issues like incorrect uniform values or buffer layout mismatches.
+
+<Callout title="Browser-Specific GPU Debugging" type="info">
+For even deeper analysis, modern browsers are shipping with advanced GPU debugging tools. In Chrome, `chrome://gpu` shows hardware acceleration status. Future versions of browser developer tools are expected to include more integrated WebGPU profiling and debugging features.
+</Callout>
+
+### 6. Memory Leak Detection
+
+If performance degrades over time, you likely have a memory leak. Use the DevTools Memory tab.
+
+1.  **Go to the Memory Tab:** Choose "Heap snapshot".
+2.  **Establish a Baseline:** With your visualizer deactivated, take a snapshot.
+3.  **Activate, Run, Deactivate:** Activate your visualizer, let it run, then deactivate it. Ensure `onDeactivated` is being called for cleanup.
+4.  **Take a Comparison Snapshot:** Take a second heap snapshot.
+5.  **Analyze the Delta:** Change the view from "Summary" to "Comparison". This shows only the new objects allocated but not garbage collected. Look for detached DOM elements or `three.js` objects (Geometries, Materials, Textures) that were not cleaned up.
+
+### 7. Visual Debugging Techniques
+
+-   **Isolate State with `save()` and `restore()`:** The 2D canvas context is a state machine. Transformations (`translate`, `rotate`) are cumulative. Wrap operations in `ctx.save()` and `ctx.restore()` to isolate their state changes.
+-   **Draw Bounding Boxes:** Can't see an object? Draw a bright, semi-transparent rectangle at its calculated position and size to check if your positioning logic is flawed.
+-   **Debug Math with `fillText`:** If a variable's value seems wrong, render it directly to the screen. This is the `console.log` of graphics programming.
+-   **Isolate with Color Overrides:** If a dynamic color calculation is wrong, temporarily override it with a bright, hardcoded color. If the object appears, the problem is in your color logic, not positioning.
+-   **Divide and Conquer:** Systematically comment out sections of your `draw` method. When a bug disappears, the problem is in the code you just commented out.
+
+### 8. Troubleshooting Checklist
+
+-   **Problem: Visualizer is static.**
+    -   **Hypothesis: Audio data is all zeroes.** Log `this.dataArray` in `draw()`. If it's all zeroes, the `AnalyserNode` may be incorrectly connected or the audio source silent.
+-   **Problem: 3D model is black or unlit.**
+    -   **Hypothesis: No lights in the scene.** Add an `AmbientLight` or `DirectionalLight`.
+    -   **Hypothesis: Incorrect material.** `MeshBasicMaterial` does not react to lights. Use `MeshStandardMaterial`.
+    -   **Hypothesis: Flipped normals.** Try adding `side: THREE.DoubleSide` to your material.
+-   **Problem: My compute shader is not working.**
+    -   **Hypothesis: Buffer layout mismatch.** The `struct` layout in your WGSL/GLSL code must **exactly** match the byte layout of the data in your `ArrayBuffer`. Mismatches are a common and silent source of errors. Double-check sizes and padding. Use Spector.js to inspect the buffer contents.
+-   **Problem: Visual is blurry on a high-DPI (Retina) screen.**
+    -   **Hypothesis: Canvas resolution mismatch.** Your `onResize` method MUST scale the canvas backing store by `window.devicePixelRatio` (e.g., `canvas.width = width * dpr`) and then scale the context to compensate (`ctx.scale(dpr, dpr)`).
+-   **Problem: A setting change doesn't update the visual.**
+    -   **Hypothesis: Signal is not being updated.** In the React DevTools, check if the signal's value in the `App` component is changing after the UI interaction.
+    -   **Hypothesis: Incorrect subscription.** Ensure the part of your `draw` loop that uses the setting is correctly accessing the settings object.
+-   **Problem: Tailwind CSS classes are not applying.**
+    -   **Hypothesis: Misconfigured content path.** Check `tailwind.config.mjs` to ensure it's scanning the correct file paths.
+    -   **Hypothesis: CSS specificity conflict.** Inspect the element in DevTools. A more specific selector from Spotify's stylesheet is likely overriding your class. You may need a more specific selector yourself.
+
+</Steps> 

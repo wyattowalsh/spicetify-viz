@@ -1,0 +1,111 @@
+---
+title: usage
+description: everything you need to know to use spicetify-viz
+icon: FaPlugCircleBolt
+---
+
+import { Steps } from 'fumadocs-ui/components/steps';
+import { Callout } from 'fumadocs-ui/components/callout';
+import { Tab, Tabs } from 'fumadocs-ui/components/tabs';
+
+---
+
+A comprehensive guide to installing, configuring, and using `spicetify-viz`.
+
+## Installation
+
+There are two primary ways to install `spicetify-viz`. The Marketplace method is recommended for most users.
+
+<Tabs items={['Marketplace (Recommended)', 'Manual CLI']}>
+<Tab value="marketplace">
+The official [Spicetify Marketplace](https://spicetify.app/docs/user-guide/marketplace) handles automatic updates and ensures you're always on the latest version.
+
+1.  Make sure you have the latest version of Spicetify and have run `spicetify backup apply`.
+2.  In Spotify, go to the **Marketplace** tab in the left sidebar.
+3.  Search for `spicetify-viz`.
+4.  Click **Install**.
+5.  A new **Visualizer** icon will appear in your sidebar. Click it to get started.
+</Tab>
+<Tab value="cli">
+This method is for users who want to install a specific version or a development build.
+
+1.  Go to the [Releases page](https://github.com/your-username/spicetify-viz/releases) on GitHub.
+2.  Download the `.zip` file for the desired version (e.g., `spicetify-viz-v1.2.0.zip`).
+3.  Unzip the file. You should have a folder named `spicetify-viz`.
+4.  Find your Spicetify `CustomApps` directory. You can find this path by running:
+    ```bash
+    spicetify -c
+    # Look for the `custom_apps_path` value.
+    ```
+5.  Move the unzipped `spicetify-viz` folder into your `CustomApps` directory.
+6.  Add the app to your config file:
+    ```bash
+    spicetify config custom_apps spicetify-viz
+    ```
+7.  Apply the changes:
+    ```bash
+    spicetify apply
+    ```
+</Tab>
+</Tabs>
+
+## Using the Visualizer
+
+Once installed, using the visualizer is straightforward.
+
+<Steps>
+
+### 1. Accessing the Visualizer
+
+Click the new **Visualizer** icon in your Spotify sidebar. By default, the visualizer will appear as an overlay at the bottom of the screen.
+
+### 2. Opening the Settings Menu
+
+To configure the visuals, click the **Settings cog icon** located at the bottom right of the visualizer canvas. This will open the main settings panel.
+
+### 3. Selecting a Visualizer
+
+The settings menu allows you to choose from any of the available visualizer styles.
+
+-   Use the **"Visualizer Style"** dropdown to select a base visualizer (e.g., "Radial Bars", "Particle System").
+-   Changing the style will instantly update the visuals.
+
+### 4. Configuring Settings
+
+Each visualizer has its own set of unique options, which will appear in the settings menu when that visualizer is selected.
+
+-   **Global Settings:** These settings, like "Amplitude," affect all visualizers. Use this to control the overall sensitivity and reactivity of the visuals.
+-   **Visualizer-Specific Settings:** These are sliders, toggles, and dropdowns that control the appearance of the currently active visualizer. For example, for the "Bar Spectrum," you can control the number of bars, the gap between them, and their color.
+
+<Callout title="Experiment!">
+The best way to find a look you love is to experiment. Try combining different visualizers with various settings. The system is designed for real-time feedback, so you can see the effect of your changes instantly.
+</Callout>
+
+### 5. Fullscreen Mode
+
+For a more immersive experience, click the **Fullscreen icon** (typically next to the settings icon) to have the visualizer canvas fill the entire Spotify window. Click it again or press the `Esc` key to exit.
+
+</Steps>
+
+## Example Configurations
+
+Here are a few examples to get you started.
+
+#### Classic Bar Look
+- **Visualizer Style:** `Bar Spectrum`
+- **Bar Count:** `128`
+- **Color:** `hsl(210, 80%, 70%)` (A nice blue)
+- **Logarithmic:** `true`
+
+#### Ambient Particle Cloud
+- **Visualizer Style:** `Particle System`
+- **Particle Count:** `500`
+- **Reactivity:** `sizeTo: 'volume'`, `speedTo: 'bass'`
+- **Link Particles:** `true`
+
+#### Psychedelic Shaders
+- **Visualizer Style:** `GLSL Shader`
+- **Shader:** (Select a pre-loaded shader like "Plasma" or "Warp Speed")
+- **Amplitude:** `2.0`
+
+--

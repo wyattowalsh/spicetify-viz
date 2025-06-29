@@ -1,0 +1,13 @@
+---
+description: 
+globs: 
+alwaysApply: true
+---
+# Architecture Principles
+
+The `spicetify-viz` architecture is based on **Inversion of Control (IoC)** to ensure modularity and testability. Refer to `[architecture.mdx](mdc:docs/content/docs/dev-notes/architecture.mdx)` for a full overview.
+
+- **Engine (`[app.tsx](mdc:spicetify-viz/src/app.tsx)`)**: The central orchestrator. It owns all state (via signals), manages the render loop, and injects dependencies into visualizers. It is the single source of truth.
+- **Visualizers (`/spicetify-viz/src/visualizers/*.ts`)**: Interchangeable, stateless modules that implement drawing logic. They are passive recipients of data.
+- **State Management**: State is managed exclusively with **Signals** (as of React 19) for fine-grained reactivity and performance. Avoid standard `useState` for high-frequency updates. All state is owned by `app.tsx`.
+- **Core Services (`/spicetify-viz/src/core/*.ts`)**: Singleton services for global concerns like audio processing (`[audio.ts](mdc:spicetify-viz/src/core/audio.ts)`), dynamic theming (`[theme.ts](mdc:spicetify-viz/src/core/theme.ts)`), and settings (`[settings.ts](mdc:spicetify-viz/src/core/settings.ts)`).

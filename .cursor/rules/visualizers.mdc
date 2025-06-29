@@ -1,0 +1,17 @@
+---
+description: 
+globs: 
+alwaysApply: true
+---
+# Visualizer Development
+
+When creating or modifying visualizers, adhere to the contracts and patterns detailed in `[creating-visualizations.mdx](mdc:docs/content/docs/dev-notes/creating-visualizations.mdx)`.
+
+- **Contract**: All visualizers must extend `BaseVisualizer` (2D) or `BaseVisualizer3D` (3D).
+- **WebGPU First**: All new 3D visualizers **must** use WebGPU. WebGL is considered legacy.
+- **GPGPU**: For complex simulations like particle systems or fluids, you **must** use compute shaders for physics and state calculations. See `[particle-system.mdx](mdc:docs/content/docs/dev-notes/visualizations/particle-system.mdx)` for an example.
+- **Lifecycle & Cleanup**:
+    - `onActivated()`: For one-time setup.
+    - `onDeactivated()`: **Mandatory for all 3D visualizers.** Dispose of all Three.js objects (geometries, materials, textures) to prevent memory leaks.
+- **Settings**: Define all settings in the Zod schema in `[settings.ts](mdc:spicetify-viz/src/core/settings.ts)`. The UI is generated automatically.
+- **Registration**: Register the new visualizer in `[index.ts](mdc:spicetify-viz/src/visualizers/index.ts)`.

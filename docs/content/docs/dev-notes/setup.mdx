@@ -1,0 +1,182 @@
+---
+title: setup
+description: how to configure a robust, reproducible local development environment for spicetify-viz.
+icon: FaHardHat
+---
+
+import { Steps } from 'fumadocs-ui/components/steps';
+import { Callout } from 'fumadocs-ui/components/callout';
+import { CodeBlock } from 'fumadocs-ui/components/codeblock';
+import { Mermaid } from '@/components/mdx/mermaid';
+
+---
+
+a guide to configuring a robust, modern, and reproducible local development environment for `spicetify-viz`. this setup is engineered for maximum productivity and consistency across all contributors. adherence is not just recommended; it is **mandatory** for all contributions.
+
+<Steps>
+
+### 1. Core Toolchain
+
+this project is built upon a specific, modern toolchain. install the latest stable versions of the following tools.
+
+-   **[node.js](https://nodejs.org/) (v22.x lts or later):** the javascript runtime environment.
+-   **[pnpm](https://pnpm.io/installation) (v9.x or later):** the mandatory package manager for this monorepo. it is chosen for its superior performance and strict workspace management, which are critical for maintaining a healthy, large-scale project.
+    -   **Speed:** a parallelized installation process minimizes setup and CI/CD time.
+    -   **Efficiency:** a content-addressable store saves significant disk space by symlinking dependencies instead of performing redundant copies, a key advantage in complex monorepos.
+    -   **Strictness:** the non-flat `node_modules` structure is a core feature, preventing "phantom dependencies" where a package can access unlisted dependencies. this enforces clean, explicit dependency graphs and prevents hard-to-debug versioning conflicts.
+-   **[spicetify](https://spicetify.app/docs/getting-started):** the command-line tool for patching the spotify client.
+-   **[git](https://git-scm.com/):** for version control.
+
+### 2. Dependency Installation
+
+clone the repository and install dependencies for all workspaces from the project root.
+
+```bash
+# This command reads `pnpm-workspace.yaml` and installs dependencies
+# for all defined workspaces (e.g., `/`, `/docs`, `/spicetify-viz`),
+# hoisting them into a single, optimized `node_modules` directory.
+pnpm install
+```
+
+this installs all `dependencies` and `devDependencies` from the `package.json` files in each workspace, creating a unified dependency graph managed by `pnpm`.
+
+### 3. Tailwind CSS & PostCSS
+
+tailwind css is integrated via postcss, a tool for transforming css with javascript plugins. this setup is supported natively by `spicetify-creator`, the official tool for building spicetify extensions.
+
+<CodeBlock title="postcss.config.mjs">
+```javascript
+export default {
+  plugins: {
+    // 1. Scans source files, finds utility classes, and generates the necessary CSS.
+    tailwindcss: {},
+    // 2. Parses generated CSS and adds vendor prefixes for the specific
+    //    Chromium version used by the Spotify client, ensuring compatibility.
+    autoprefixer: {},
+  },
+};
+```
+</CodeBlock>
+
+<CodeBlock title="tailwind.config.mjs">
+```javascript
+/** @type {import('tailwindcss').Config} */
+export default {
+  // A prefix is non-negotiable in a shared CSS environment like Spotify
+  // to prevent style collisions. All utility classes will be prefixed,
+  // e.g., `sv-flex`, `sv-text-white`.
+  prefix: 'sv-',
+  content: [
+    "./spicetify-viz/src/**/*.{ts,tsx}", // Scan all TS/TSX files for class usage.
+  ],
+  theme: { extend: {} },
+  plugins: [],
+}
+```
+</CodeBlock>
+
+<Callout title="The Critical Importance of CSS Namespacing">
+  in a shared styling context like the spotify client, class name collisions are inevitable and catastrophic. if we used `flex`, and spotify also used `flex`, the resulting style would depend entirely on the unpredictable load order of stylesheets, leading to visual bugs. by enforcing the `sv-` prefix, we create a unique, isolated namespace. this guarantees that our styles apply *only* to our components and can neither be overridden by spotify's styles nor interfere with them.
+</Callout>
+
+### 4. `shadcn-ui`: Component Sovereignty
+
+<Callout title="shadcn-ui is not a component library—it's a component factory." type="info">
+`shadcn-ui` is a tool that copies unstyled, accessible, and atomic component source code directly into your project. this provides full, sovereign control over their implementation, styling, and behavior. it allows us to build a bespoke design system without the "black box" limitations, versioning conflicts, or bundle-size bloat of traditional npm libraries.
+</Callout>
+
+this project uses `shadcn-ui` to manage its core ui components.
+
+1.  **initialization:** this one-time command has already been run to configure the project.
+    ```bash
+    # do not run this again unless re-initializing the project from scratch.
+    pnpm exec shadcn-ui@latest init
+    ```
+    the key choices for a spicetify environment are:
+    - `would you like to use typescript?` **yes**. mandatory for type safety.
+    - `where is your global css file?` **spicetify-viz/src/style.css**.
+    - `would you like to use css variables for colors?` **yes**. this is the architectural linchpin for dynamic theming. the `core/theme.ts` singleton can change the entire ui's color palette at runtime simply by updating a few css variables on the root element.
+    - `where is your tailwind.config.js located?` **tailwind.config.mjs**.
+    - `configure import alias for components?` **`@/components`**.
+    - `configure import alias for utils?` **`@/lib/utils`**.
+    - `are you using react server components?` **no**. spicetify is a purely client-side environment.
+
+2.  **adding a component:**
+    ```bash
+    pnpm exec shadcn-ui@latest add button
+    ```
+    this command copies the source for `button.tsx` into `spicetify-viz/src/components/ui/`, making it immediately available for use and local modification.
+
+### 5. The Development Environment
+
+to ensure a consistent, productive, and cutting-edge development experience, we have standardized the entire environment.
+
+#### recommended ide
+
+for the best experience, we strongly recommend using [cursor](https://cursor.sh/), an ai-native ide that can leverage the project's included `.cursor/` directory for highly contextual, project-aware ai assistance. vs code is a suitable alternative.
+
+#### required vs code / cursor extensions
+
+to standardize the development environment, a `.vscode/extensions.json` file is included. upon opening the project, your ide will prompt you to install these extensions. **you must install all of them.**
+
+<CodeBlock title=".vscode/extensions.json">
+```json
+{
+  "recommendations": [
+    // Core IntelliSense & Formatting
+    "dbaeumer.vscode-eslint",
+    "esbenp.prettier-vscode",
+    "bradlc.vscode-tailwindcss",
+    // GLSL Shader Support
+    "slevesque.shader",
+    "cadenas.vscode-glsllint",
+    // DX & Collaboration
+    "mutantdino.resourcemonitor",
+    "github.vscode-pull-request-github",
+    "github.vscode-github-actions",
+    "github.copilot"
+  ]
+}
+```
+</CodeBlock>
+
+#### Containerized Development (Mandatory)
+
+<Callout title='The "works on my machine" era is over.' type="warning">
+to eliminate environmental inconsistencies, this project **requires** development inside a [dev container](https://containers.dev/). this system uses docker to create a sandboxed, fully reproducible development environment. every contributor uses the exact same operating system, dependencies, tool versions, and configurations. **contributions developed outside of this container will not be accepted.**
+</Callout>
+
+1.  **prerequisites:** install [docker desktop](https://www.docker.com/products/docker-desktop/) and the [dev containers extension](https://marketplace.visualstudio.com/items?itemName=ms-vscode-remote.remote-containers) for vs code/cursor.
+2.  **configuration:** the `.devcontainer/devcontainer.json` file defines the entire environment, from the base linux image and node.js version to the installed extensions and automated setup commands.
+3.  **launch:** open this project in a compatible ide. you will be prompted to **"reopen in container."** click it. the ide will build the docker image and connect to it. from that point on, your terminal, debugger, and all commands execute inside this isolated linux environment, guaranteeing a perfectly consistent experience for everyone.
+
+### 6. The Development Loop
+
+1.  **run the watcher:**
+    the development server uses `esbuild` for its unparalleled incremental rebuild speed. in a terminal, navigate to the extension's directory and start the watcher.
+    ```bash
+    cd spicetify-viz
+    pnpm watch
+    ```
+    this watches for file changes and rebuilds the necessary output to the `dist` directory almost instantly.
+
+2.  **link the app to spotify:**
+    in a second terminal, instruct spicetify to load your local build as a custom app. you must use an **absolute path** to the `spicetify-viz` directory within the project, not to the `dist` directory.
+    ```bash
+    # from the project root (e.g., /users/jane/dev/spicetify-viz)
+    spicetify config custom_apps spicetify-viz "$(pwd)/spicetify-viz"
+    spicetify apply
+    ```
+    the `spicetify apply` command patches the client to load your custom app.
+
+3.  **verify & debug:**
+    -   restart spotify. a hard refresh (`cmd/ctrl + shift + r`) is often necessary to bust the cache on first load and after significant changes.
+    -   your app will appear in the sidebar under "custom apps."
+    -   right-click anywhere in the client and select "inspect element" to open the chromium devtools for debugging.
+    -   any saved code change will trigger an esbuild rebuild. a hard refresh of spotify is all that's needed to see the update.
+
+<Callout title="Development vs. Production Builds">
+`pnpm watch` uses `esbuild` for its development speed. for creating an official, optimized production release for the marketplace, the project uses `spicetify-creator`, which is executed by the ci/cd pipeline. this tool performs more aggressive optimizations, tree-shaking, and minification, packaging the extension into the required format for public distribution.
+</Callout>
+
+</Steps> 

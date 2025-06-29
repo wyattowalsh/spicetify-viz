@@ -1,0 +1,10 @@
+{
+    "pages": [
+        "setup",
+        "architecture",
+        "visualizations",
+        "creating-visualizations",
+        "debugging",
+        "publishing"
+    ]
+}

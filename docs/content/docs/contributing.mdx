@@ -1,0 +1,71 @@
+---
+title: Contributing
+description: How to get involved and help improve spicetify-viz.
+icon: MdVolunteerActivism
+---
+
+import { Callout } from 'fumadocs-ui/components/callout';
+import { Card, Cards } from 'fumadocs-ui/components/card';
+import { GitBranch, Bug, Lightbulb, Code, FileText } from 'lucide-react';
+
+We're thrilled you're interested in contributing to `spicetify-viz`! This project thrives on community involvement, and every contribution, no matter how small, is valued. This guide will help you get started.
+
+## Types of Contributions
+
+There are many ways to contribute to the project's success.
+
+<Cards>
+  <Card
+    icon={<Bug />}
+    title="Report Bugs"
+    description="Find a bug? Create a detailed issue on our GitHub page. Include steps to reproduce, your OS, and Spotify version."
+  />
+  <Card
+    icon={<Lightbulb />}
+    title="Suggest Features"
+    description="Have a great idea for a new visualizer or feature? Open a feature request issue to discuss it."
+  />
+  <Card
+    icon={<Code />}
+    title="Write Code"
+    description="Help fix bugs or implement new features. See the development workflow below to get started."
+  />
+  <Card
+    icon={<FileText />}
+    title="Improve Documentation"
+    description="Find a typo or an unclear section in this documentation? Open a PR to make it better."
+  />
+</Cards>
+
+## Development Workflow
+
+Here's the core workflow for making a code contribution.
+
+1.  **Find an Issue:** Look for an open issue on the [GitHub Issues page](https://github.com/your-username/spicetify-viz/issues) that you'd like to tackle. If you have a new idea, create an issue first to discuss it with the maintainers.
+
+2.  **Set Up Your Environment:** Follow the [**Development Setup Guide**](./dev-notes/setup) to get your local environment configured.
+
+3.  **Understand the Architecture:** Before diving into the code, read the [**Architecture Overview**](./dev-notes/architecture) to understand how the project is structured. This will save you a lot of time.
+
+4.  **Create a Feature Branch:**
+    ```bash
+    # Branch from the 'main' branch
+    git checkout main
+    git pull
+    git checkout -b feat/my-awesome-feature
+    ```
+
+5.  **Make Your Changes:** Write your code, ensuring you follow the project's coding standards. If you're creating a new visualizer, follow the [**Creating Visualizations Guide**](./dev-notes/creating-visualizations).
+
+6.  **Test Your Changes:** Run the test suite to ensure your changes haven't introduced any regressions.
+    ```bash
+    pnpm test
+    ```
+
+7.  **Commit and Push:** Use the [**Conventional Commits**](https://www.conventionalcommits.org/en/v1.0.0/) format for your commit messages. This is required for our automated release process. Push your branch to your forked repository.
+
+8.  **Open a Pull Request:** Open a PR from your branch against the `main` branch of the main repository. Fill out the PR template, describing your changes clearly. A maintainer will then review your work.
+
+<Callout title="Code of Conduct">
+Please note that this project is released with a Contributor Code of Conduct. By participating in this project you agree to abide by its terms.
+</Callout>

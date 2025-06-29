@@ -1,0 +1,19 @@
+---
+description: 
+globs: 
+alwaysApply: true
+---
+# Contribution Workflow
+
+All contributions must follow the strict, automated workflow detailed in `[publishing.mdx](mdc:docs/content/docs/dev-notes/publishing.mdx)`.
+
+- **Conventional Commits**: All commit messages **must** follow the Conventional Commits specification. This is non-negotiable as it drives the automated release process.
+    - `feat`: For new features (triggers MINOR release).
+    - `fix`: For bug fixes (triggers PATCH release).
+    - `perf`: For performance improvements (triggers PATCH release).
+    - `BREAKING CHANGE:` or `!` in the type/scope: For breaking changes (triggers MAJOR release).
+- **Pull Requests**: The PR title **must** also be a valid Conventional Commit message. PRs are squashed and merged, making the PR title the final commit message on the `main` branch.
+- **Testing**: All new features and fixes must be accompanied by tests using Vitest. It is **mandatory** to verify visual/functional changes on macOS, Windows, and Linux.
+- **Code Quality**:
+    - `pnpm lint` must pass.
+    - The use of `any` is strictly forbidden. Use `unknown` with type-safe validation (e.g., Zod).

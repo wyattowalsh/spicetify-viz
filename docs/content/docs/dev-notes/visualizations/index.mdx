@@ -1,0 +1,114 @@
+---
+title: visualizations
+description: a catalog of available and planned visualization styles.
+icon: FaChartLine
+---
+
+import { Cards, Card } from 'fumadocs-ui/components/card';
+import { Callout } from 'fumadocs-ui/components/callout';
+import { Mermaid } from '@/components/mdx/mermaid';
+
+this document catalogs the official visualization styles for `spicetify-viz`. each visualizer is a modular, highly customizable engine for creative expression, designed to transform sound into a compelling visual narrative.
+
+<Callout title="the visualizer pipeline">
+  the system functions by taking real-time audio analysis data from the spicetify player and feeding it into a selected visualizer module. the visualizer then uses this data to render graphics to a high-performance html5 canvas element overlaid on the spotify ui.
+</Callout>
+
+<Mermaid chart={`
+graph TD
+    subgraph "input"
+        A["fa:fa-spotify<br/>spicetify player api"]
+    end
+
+    subgraph "core engine"
+        B["fa:fa-cogs 'core/audio.ts'<br/><strong>audio engine</strong><br/>analyzes raw audio stream"]
+        C{"fa:fa-database<br/><strong>processed audio data</strong><br/>frequency, waveform, beat"}
+    end
+
+    subgraph "visualization layer"
+        D["fa:fa-sitemap 'visualizers/index.ts'<br/><strong>visualizer registry</strong><br/>selects active visualizer"]
+    end
+
+    subgraph "rendering"
+        E((fa:fa-desktop<br/>canvas output))
+    end
+    
+    subgraph "available visualizers"
+        direction LR
+        V1["fa:fa-chart-bar<br/>bar spectrum"]
+        V2["fa:fa-braille<br/>particle system"]
+        V3["fa:fa-code<br/>shader art"]
+        V4["fa:fa-cubes<br/>mesh deformation"]
+        V5["fa:fa-water<br/>fluid simulation"]
+        V6["fa:fa-road<br/>retro grid"]
+        V7["fa:fa-font<br/>kinetic typography"]
+        V8["fa:fa-th-large<br/>album art mosaic"]
+    end
+
+    A -- "audio stream" --> B
+    B -- "produces" --> C
+    C -- "sent to" --> D
+    D -- "injects data into" --> V1
+    D -- "injects data into" --> V2
+    D -- "injects data into" --> V3
+    D -- "injects data into" --> V4
+    D -- "injects data into" --> V5
+    D -- "injects data into" --> V6
+    D -- "injects data into" --> V7
+    D -- "injects data into" --> V8
+    
+    V1 & V2 & V3 & V4 & V5 & V6 & V7 & V8 -- "render to" --> E
+
+    classDef input fill:#e8f5e9,stroke:#1b5e20,stroke-width:2px,color:#000
+    classDef core fill:#fffde7,stroke:#f57f17,stroke-width:2px,color:#000
+    classDef viz fill:#e3f2fd,stroke:#0d47a1,stroke-width:2px,color:#000
+    classDef output fill:#f3e5f5,stroke:#4a148c,stroke-width:2px,color:#000
+    
+    class A input
+    class B,C core
+    class D,V1,V2,V3,V4,V5,V6,V7,V8 viz
+    class E output
+`} />
+
+<Cards>
+  <Card
+    href="./visualizations/bar-spectrum"
+    title="bar spectrum"
+    description="the archetypal visualizer. a classic, lightweight, and highly customizable frequency bar graph."
+  />
+  <Card
+    href="./visualizations/particle-system"
+    title="particle system"
+    description="unleashes thousands of gpu-accelerated particles that form complex, emergent behaviors."
+  />
+    <Card
+    href="./visualizations/shader-art"
+    title="shader art"
+    description="the ultimate creative canvas. use the raw power of the gpu with custom shaders."
+  />
+    <Card
+    href="./visualizations/mesh-deformation"
+    title="3d mesh deformation"
+    description="transforms any 3d model into a living sculpture that twists and deforms to the music."
+  />
+    <Card
+    href="./visualizations/fluid-simulation"
+    title="fluid simulation"
+    description="a stunning, gpu-based simulation of organic, ever-evolving fluid dynamics."
+  />
+    <Card
+    href="./visualizations/retro-grid"
+    title="retro grid"
+    description="a journey down an infinite, glowing grid into a synthwave-inspired horizon."
+  />
+    <Card
+    href="./visualizations/kinetic-typography"
+    title="kinetic typography"
+    description="brings the artist's words to life with dynamic, time-synced lyric animations."
+  />
+    <Card
+    href="./visualizations/album-art-mosaic"
+    title="album art mosaic"
+    description="artistically deconstructs and reanimates the album art into a living, pulsing mosaic."
+  />
+</Cards> 

@@ -1,0 +1,79 @@
+---
+title: retro grid
+description: a synthwave-inspired journey down an infinite, audio-reactive landscape.
+icon: FaRoad
+---
+
+import { CodeBlock } from 'fumadocs-ui/components/codeblock';
+import { Callout } from 'fumadocs-ui/components/callout';
+
+A journey down an infinite, glowing grid into a synthwave horizon. This visualizer creates the quintessential retro-futuristic landscape that undulates and pulses to the beat, complete with procedurally generated digital mountains and a full suite of analog-inspired post-processing effects.
+
+-   **Description:** Renders an infinite, scrolling perspective grid that deforms in real-time to the audio. The scene can be populated with distant, procedurally generated mountains, a synthwave sun, and a starfield, all drenched in atmospheric fog and retro visual artifacts.
+-   **Use Case:** Perfect for synthwave, electronic, or any music that calls for a nostalgic, stylized, and immersive journey into a digital world.
+
+<Callout title="Technical Details">
+-   **Performance Profile:** CPU: Low / GPU: Medium to High, depending on post-processing effects.
+-   **How It Works:** This is a 3D scene rendered with WebGPU. The "infinite" grid is an illusion created by two large grid planes that leapfrog each other as the camera moves. Audio data is passed as a `uniform` to the vertex shader, which displaces the grid's vertices to create a terrain-like surface. Post-processing effects like bloom, scanlines, and chromatic aberration are applied as full-screen shader passes after the main scene is rendered.
+</Callout>
+
+#### Configuration Options
+<CodeBlock title="config/retro-grid.ts">
+```ts
+export interface RetroGridOptions {
+  // --- Grid ---
+  gridLineColor: string; // e.g., '#ff00ff'.
+  gridLineWidth: number;
+  gridDensity: number; // Number of lines in the grid.
+  gridStyle: 'solid' | 'dashed' | 'points';
+  scrollSpeed: number; // Base speed at which the grid scrolls towards the camera.
+  
+  // --- Mountains ---
+  showMountains: boolean;
+  mountainColor: string;
+  mountainCount: number; // Number of mountain ranges.
+  mountainHeight: number; // Max height of the mountains.
+  mountainRoughness: number; // Ruggedness of the terrain (controls noise frequency).
+
+  // --- Camera ---
+  perspective: number; // Field of view. Higher values create a more extreme, wide-angle perspective.
+  cameraShake: {
+    // Shakes the camera in response to audio.
+    frequency: 'bass' | 'beat' | 'none';
+    strength: number; // Max strength of the camera shake.
+  }
+
+  // --- Scene & Atmosphere ---
+  showSun: boolean;
+  sunColor: string;
+  sunRadius: number;
+  showStarfield: boolean; // Adds a procedural, scrolling starfield.
+  fog: boolean; // Adds distance-based fog for atmospheric depth.
+  fogColor: string;
+  fogDensity: number; // How quickly the fog becomes opaque.
+
+  // --- Reactivity ---
+  reactivity: {
+    // What drives the height/waviness of the grid lines.
+    gridWaviness: 'volume' | 'bass' | 'beat' | 'none';
+    // Allows different frequencies to control waviness on different axes.
+    wavinessAxis: 'x' | 'y' | 'z' | 'all';
+    // What drives the height of the mountains.
+    mountainAmplitude: 'volume' | 'bass' | 'beat' | 'none';
+    // Music feature that modulates scroll speed.
+    scrollSpeedModifier: 'volume' | 'tempo' | 'none';
+  };
+
+  // --- Post-Processing Effects ---
+  bloom: boolean; // Adds a neon glow effect.
+  bloomIntensity: number;
+  // Adds horizontal lines for a CRT monitor look.
+  scanlines: boolean;
+  scanlineDensity: number; // How many scanlines are visible.
+  scanlineOpacity: number; // Opacity of the scanlines.
+  // Adds a retro lens distortion effect.
+  chromaticAberration: boolean;
+  chromaticAberrationIntensity: number; // How strong the color separation is.
+}
+```
+</CodeBlock> 

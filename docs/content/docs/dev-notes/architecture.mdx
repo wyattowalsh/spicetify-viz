@@ -1,0 +1,239 @@
+---
+title: architecture
+description: an analysis of the core architecture, data flows, and design patterns that define spicetify-viz.
+icon: FaDraftingCompass
+---
+
+import { Callout } from 'fumadocs-ui/components/callout';
+import { Mermaid } from '@/components/mdx/mermaid';
+
+---
+
+an overview of the `spicetify-viz` architecture. a comprehensive understanding of these principles is essential for any meaningful contribution.
+
+### Core Philosophy: Inversion of Control (IoC)
+
+the architecture is founded on the **inversion of control (ioc)** principle to decouple the rendering engine from the individual visualizers. this strategy maximizes modularity, enables parallel development, and simplifies testing.
+
+-   **the engine (`app.tsx`):** the system's central orchestrator. its sole responsibilities are:
+    1.  **state ownership:** it is the single source of truth for all application state (e.g., active visualizer, settings, theme), managed via signals.
+    2.  **render loop:** it manages the `requestanimationframe` loop, driving all visual updates.
+    3.  **dependency injection:** it injects data dependencies (audio analysis, color palette, settings) into the active visualizer's `draw()` method on each frame. the visualizer is a passive recipient of data, not a solicitor.
+-   **visualizers (`/visualizers/*.ts`):** these are self-contained, stateless, and interchangeable modules. each visualizer is a pure es6 class that implements drawing logic. it receives everything it needs to render a single frame from the engine, making it portable and trivial to debug in isolation.
+-   **the ui shell (`/components/*.tsx`):** the ui controls (settings menu, visualizer selector) are controlled react components. they manage no internal state, receiving values and callbacks from the `app.tsx` engine via props. user interactions signal intent to the engine, which updates the central state, triggering surgical re-renders via signals.
+
+this strict separation of concerns prevents tight coupling and is the cornerstone of the project's scalability.
+
+### Design Patterns in Play
+
+while ioc is the guiding philosophy, several classic design patterns are used to implement it effectively.
+
+-   **singleton:** `core/audio.ts` and `core/theme.ts` are singletons. this is appropriate for managing global, unique resources like the web audio api's `audiocontext` or the current theme palette, ensuring a single, consistent source of data and behavior.
+    <Callout title="A Note on Singletons">
+        while often an anti-pattern, the singleton is a deliberate, pragmatic choice here. resources like the `audiocontext` are inherently global and expensive to create. a singleton guarantees these resources are initialized exactly once, providing a stable, performant, and centrally managed service throughout the application's lifecycle.
+    </Callout>
+-   **strategy pattern:** the visualizers are a direct implementation of the strategy pattern. the engine (`app.tsx`) is the "context," and each visualizer class is a concrete "strategy." the engine can seamlessly swap between strategies (e.g., `bar-spectrum` to `retro-grid`) without altering its own code, as they all adhere to a common interface (the "strategy" contract).
+-   **observer pattern:** `core/theme.ts` acts as an "observer." it subscribes to the `spicetify.player` "subject" and is notified of state changes via the `songchange` event. this decouples theme generation from the player's internal workings.
+-   **dependency injection:** as noted, the engine uses di to provide the active visualizer with its dependencies (`theme`, `settings`, `audiodata`). this makes visualizers pure, stateless functions of their inputs, which is ideal for testing and reasoning about their behavior.
+
+### Project Structure
+
+the file structure is organized to enforce this decoupled philosophy.
+
+<Mermaid chart={`
+graph TD
+    A["fa:fa-rocket 'spicetify-viz'"]
+
+    subgraph "Application Layer"
+        direction TB
+        B["fa:fa-play-circle 'app.tsx'<br/><strong>Engine & State Orchestrator</strong>"]
+        C["fa:fa-puzzle-piece 'components/'<br/>React UI Shell"]
+    end
+    
+    subgraph "Core Services (Singletons)"
+        direction TB
+        D["fa:fa-volume-up 'core/audio.ts'<br/>Web Audio API Manager"]
+        E["fa:fa-palette 'core/theme.ts'<br/>Dynamic Color Engine"]
+        F["fa:fa-sliders-h 'core/settings.ts'<br/>Configuration Manager"]
+    end
+
+    subgraph "Visualizer Modules"
+        direction TB
+        G["fa:fa-image 'visualizers/'<br/>Visualizer Implementations"]
+        H["fa:fa-list 'visualizers/index.ts'<br/>Visualizer Registry"]
+        I["fa:fa-cube 'visualizers/base.ts'<br/>2D Contract"]
+        J["fa:fa-cubes 'visualizers/base-3d.ts'<br/>3D Contract"]
+    end
+
+    subgraph "Shared Code"
+        K["fa:fa-tools 'lib/'<br/>Utility Functions"]
+    end
+    
+    A --> B
+    B --> C
+    B --> D
+    B --> E
+    B --> F
+    B --> G
+    B --> K
+    G --> H
+    G --> I
+    G --> J
+    
+    classDef root fill:#fce4ec,stroke:#880e4f,color:#000,stroke-width:2px
+    classDef app fill:#e3f2fd,stroke:#0d47a1,color:#000,stroke-width:2px
+    classDef core fill:#fffde7,stroke:#f57f17,color:#000,stroke-width:2px
+    classDef visualizers fill:#e8f5e9,stroke:#1b5e20,color:#000,stroke-width:2px
+    classDef shared fill:#f5f5f5,stroke:#616161,color:#000,stroke-width:2px
+
+    class A root
+    class B,C app
+    class D,E,F core
+    class G,H,I,J visualizers
+    class K shared
+`} />
+
+-   **`app.tsx`**: the main react component, state management, and the core render loop.
+-   **`components/`**: stateless react components that compose the ui shell.
+-   **`visualizers/`**: self-contained, interchangeable visualizer modules (strategies).
+-   **`core/`**: singleton services providing foundational capabilities.
+-   **`lib/`**: shared, pure utility functions.
+
+### Core Modules
+
+the `src/core` directory contains singleton services that provide foundational capabilities.
+
+#### `core/audio.ts`: The Audio Singleton
+
+this service manages the audio processing pipeline.
+
+-   **initialization & web audio graph:** on startup, it accesses spotify's raw `<audio>` element, creates a single `audiocontext`, and constructs the audio graph:
+    `htmlmediaelement` → `mediaelementaudiosourcenode` → `analysernode` → `audiocontext.destination`
+-   **`analysernode` configuration:** key parameters for the `analysernode`:
+    -   `fftsize`: the fast fourier transform size (e.g., `4096`). determines frequency resolution. higher `fftsize` means more detail but more latency and computational load.
+    -   `smoothingtimeconstant`: a value from `0` to `1` that averages the output with the previous frame's. a higher value like `0.8` creates a smoother, more aesthetically pleasing visual response.
+-   **zero-allocation api:** the singleton exposes `getfrequencydata(targetarray: uint8array)`. it accepts a pre-allocated `uint8array` and fills it with the latest data. this avoids memory allocation within the render loop, which is a primary cause of performance-killing garbage collection pauses.
+
+#### `core/theme.ts`: The Theming Singleton
+
+this service creates a dynamic, song-specific color palette.
+
+-   **event-driven trigger:** subscribes to `spicetify.player.addeventlistener("songchange", ...)` to detect new tracks.
+-   **cors-compliant image data extraction:**
+    1.  retrieves the album art uri from track metadata.
+    2.  uses `spicetify.cosmoasync.get('sp://image/v1/' + uri)` to get a base64-encoded jpeg, bypassing cors issues.
+    3.  draws the image onto a hidden, temporary `<canvas>`.
+    4.  calls `getimagedata(...)` to get a `uint8clampedarray` of all raw `[r, g, b, a, ...]` pixel data.
+-   **color quantization: median cut**
+    <Callout title="Why Median Cut?">
+        for this use case, the classic **median cut** algorithm provides an excellent balance of performance and quality. it is deterministic, non-iterative, and fast—critical for avoiding ui blocking on song changes.
+    </Callout>
+    <Callout title="Advanced Implementation: Perceptually Uniform Palettes via Wasm" type="info">
+       while median cut in rgb space is fast and effective, state-of-the-art color analysis leverages perceptually uniform color spaces like **oklab**. algorithms such as **k-means clustering in oklab** produce aesthetically superior, more balanced palettes that align with human perception. for `spicetify-viz`, this computationally intensive task is offloaded to a pre-compiled **webassembly (wasm) module**. this approach provides near-native performance for complex calculations, ensuring that even on-the-fly premium-quality palette generation on song change is instantaneous and does not block the main thread. this is the project's standard for performance-critical, algorithmic code.
+    </Callout>
+    the process:
+    1.  treat all image pixels as points in a 3d rgb cube.
+    2.  find the longest dimension of this cube (the color channel with the greatest range).
+    3.  sort all pixels along that axis.
+    4.  split the cube in half at the median pixel, creating two smaller buckets.
+    5.  repeat this process recursively until the desired number of color buckets is reached.
+    6.  the final palette is the average color of all pixels within each final bucket.
+-   **hsl-based api:** it exposes the generated color palette (e.g., `{ primary, secondary, ... }`) as hsl strings (`hsl(210, 40%, 98%)`). hsl is a human-readable and programmatically simple color model for manipulation (e.g., creating a highlight by increasing the lightness value).
+
+#### `core/settings.ts`: The Settings Singleton
+this service provides a single, typed source of truth for all user-configurable settings.
+-   **schema-driven:** it exports a master `settingsschema` object (likely using zod) that defines every setting's label, type (slider, toggle, etc.), default value, and constraints.
+-   **automatic defaults:** a `defaultsettings` object is programmatically generated from this schema, ensuring the defaults are never out of sync with the schema definition.
+-   **ui generation:** this schema is the single source of truth for automatically generating the `settingsmenu` ui, ensuring that adding a new setting requires changing only one file.
+
+### Error Handling & Resilience
+
+a robust application must anticipate and gracefully handle failures.
+-   **visualizer error boundary:** the main render loop in `app.tsx` wraps each call to a visualizer's `draw()` method in a `try...catch` block. if a visualizer throws an error, the engine catches it, logs it, and deactivates the faulty visualizer to prevent a crash, then shows a notification.
+-   **react error boundaries:** the main react component tree is wrapped in an `errorboundary` component. if a ui component throws an error during rendering, this boundary catches it and displays a fallback ui instead of crashing the entire application.
+-   **api failures:** core services like `theme.ts` must handle potential failures when fetching data (e.g., if spotify fails to provide album art). they must return a fallback value (e.g., a default color palette) instead of throwing an error.
+
+### State Management: Signals as the Standard
+
+this project **mandates** a modern, signal-based approach for state management to achieve maximum performance and avoid unnecessary re-renders—a critical requirement for any real-time graphics application.
+
+<Callout title="Signals vs. the Virtual DOM: A Paradigm Shift">
+traditional react re-renders a component and its entire subtree when state changes, then uses a virtual dom to "diff" the result and apply minimal changes to the actual dom. signals invert this model. a signal is a reactive primitive that wraps a piece of state. when a signal's value changes, it *directly* notifies only the specific components or effects that subscribe to it. this "fine-grained reactivity" avoids the overhead of re-rendering entire component trees, offering unparalleled performance gains in applications with high-frequency state updates. as of 2025, with the maturation of compilers and native reactive primitives in frameworks like **react 19**, this pattern of surgical, fine-grained updates is the definitive standard for building high-performance user interfaces.
+</Callout>
+
+-   **the "why":** standard react hooks, while sufficient for many apps, can lead to performance bottlenecks in high-frequency scenarios. a change to a single setting could trigger a re-render of the entire ui shell. signals prevent this by creating direct, fine-grained subscriptions between state and the specific ui elements that display it.
+-   **implementation:** with react 19, signals are a first-class, native feature, removing the need for external libraries like `@preact/signals-react`.
+-   **state locus:** all primary state signals (selected visualizer, settings, etc.) are defined within the main `app` component in `app.tsx`, which serves as the single source of truth.
+-   **unidirectional data flow:** state signals are passed down to child components via props. when a change is needed (e.g., a user interaction in the `settingsmenu`), the component updates the signal's `.value` property. this change automatically and efficiently propagates to any other component or effect that subscribes to that signal, and *only* to those components. this maintains a clear, unidirectional data flow while achieving surgical, performant updates.
+
+### End-to-End Data Flow
+
+this diagram illustrates the complete flow of data from user and system events to the final rendered output on the canvas.
+
+<Mermaid
+  chart={`
+graph TD
+    subgraph "a. input sources"
+        UserInput["fa:fa-mouse-pointer<br/>user interaction<br/>(e.g., changes setting)"]
+        SongChange["fa:fa-music<br/>spicetify event<br/>(e.g., new song plays)"]
+        AudioStream["fa:fa-wave-square<br/>real-time audio<br/>(from spotify player)"]
+    end
+
+    subgraph "b. core engine & services"
+        direction TB
+        subgraph "app.tsx (orchestrator)"
+            StateSignals{"fa:fa-satellite-dish<br/>state signals<br/>(settings, theme, etc.)"}
+            RenderLoop["fa:fa-sync<br/>requestanimationframe loop"]
+        end
+        subgraph "singletons"
+            ThemeEngine["fa:fa-palette<br/>theme.ts"]
+            AudioEngine["fa:fa-cogs<br/>audio.ts"]
+        end
+    end
+
+    subgraph "c. application modules"
+        ActiveVisualizer["fa:fa-paint-brush<br/>active visualizer<br/>(e.g., barspectrum.ts)"]
+        SettingsUI["fa:fa-sliders-h<br/>settings menu component"]
+    end
+
+    subgraph "d. output"
+        Canvas["fa:fa-desktop<br/>html canvas"]
+    end
+
+    %% Data Flow
+    SongChange -- "sends album art URI" --> ThemeEngine
+    ThemeEngine -- "generates palette, updates 'theme' signal" --> StateSignals
+    
+    AudioStream -- "raw pcm data" --> AudioEngine
+    AudioEngine -- "produces frequency data" --> RenderLoop
+
+    UserInput -- "triggers callback" --> SettingsUI
+    SettingsUI -- "updates 'settings' signal" --> StateSignals
+    
+    StateSignals -- "is read by" --> RenderLoop
+    RenderLoop -- "injects (theme, settings, audio) into 'draw()'" --> ActiveVisualizer
+
+    SettingsUI -. "subscribes to 'settings' signal" .-> StateSignals
+    
+    ActiveVisualizer -- "draws pixels to" --> Canvas
+
+    %% Styling
+    classDef input fill:#e0f7fa,stroke:#006064,stroke-width:2px,color:#000
+    classDef engine fill:#fce4ec,stroke:#880e4f,stroke-width:2px,color:#000
+    classDef singleton fill:#fffde7,stroke:#f57f17,stroke-width:2px,color:#000
+    classDef module fill:#e8f5e9,stroke:#1b5e20,stroke-width:2px,color:#000
+    classDef output fill:#f3e5f5,stroke:#4a148c,stroke-width:2px,color:#000
+
+    class UserInput,SongChange,AudioStream input
+    class StateSignals,RenderLoop engine
+    class ThemeEngine,AudioEngine singleton
+    class ActiveVisualizer,SettingsUI module
+    class Canvas output
+`}
+/>
+
+the flow is as follows:
+1.  **input sources (a):** the system reacts to three primary inputs: a user interaction, a song change event from spicetify, or the continuous stream of audio data.
+2.  **core engine & services (b):** events are processed by the core singletons. `theme.ts` handles song changes to generate new color palettes, while user inputs directly update the state signals in `app.tsx`. `audio.ts` continuously processes the audio stream. all state modifications are consolidated within the state signals.
+3.  **application modules (c):** changes to state signals are reactively propagated. the `settingsmenu` component automatically re-renders only the elements whose state has changed. the main `renderloop` reads the latest state from the signals on every frame.
+4.  **output (d):** on each tick of the `requestanimationframe` loop, the engine injects the latest state (theme, settings, audio data) into the active visualizer's `draw` method, which then renders the final pixels to the html canvas.

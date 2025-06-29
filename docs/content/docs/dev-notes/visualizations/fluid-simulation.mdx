@@ -1,0 +1,82 @@
+---
+title: fluid simulation
+description: a gpu-accelerated simulation of fluid dynamics, creating organic visuals that flow with the music.
+icon: FaWater
+---
+
+import { CodeBlock } from 'fumadocs-ui/components/codeblock';
+import { Callout } from 'fumadocs-ui/components/callout';
+
+A cutting-edge, GPU-accelerated visualizer that simulates the complex, organic motion of fluid dynamics in real-time. This is where computational physics meets generative art. Audio-driven forces are injected into a virtual fluid volume, creating beautiful, ever-evolving patterns of swirling color that flow with the music.
+
+-   **Description:** This visualizer leverages a WebGPU-based GPGPU pipeline to solve the Navier-Stokes equations for incompressible flow entirely on the GPU. Audio features (like frequency band energy or transient hits) act as impulse forces applied to the fluid's velocity and density fields, creating mesmerizing, swirling patterns that are inextricably linked to the sound.
+-   **Use Case:** The ultimate ambient experience. It generates infinitely complex, non-repeating, organic visuals that perfectly flow with the music. It is especially powerful for electronic, ambient, classical, and experimental genres where nuance and texture are key.
+
+<Callout title="Technical Details">
+-   **Performance Profile:** CPU: Very Low / GPU: High to Extreme. This effect is exceptionally demanding. The simulation `resolution` and `precision` have a significant impact on performance.
+-   **GPGPU Pipeline:** This visualizer uses a series of WebGPU **compute shaders** to numerically solve the Navier-Stokes equations for fluid flow in a feedback loop. All data (velocity, pressure, density fields) persists entirely in GPU texture memory.
+    1.  **Force Injection:** Audio data (beat, amplitude, frequency) and user interactions are translated into forces. This "splats" new velocity and color/density into the simulation textures.
+    2.  **Advection:** A shader moves the density and velocity values through the velocity field itself, causing the fluid to flow.
+    3.  **Divergence Calculation:** A shader computes the divergence of the velocity field. This measures how much fluid is "piling up" in any given cell.
+    4.  **Pressure Solving:** A highly parallel compute shader solves the Poisson equation for the pressure field. This is typically done iteratively using the Jacobi method for a fixed number of `iterations`. This step is crucial for enforcing incompressibility.
+    5.  **Gradient Subtraction:** The pressure gradient is subtracted from the velocity field, removing divergence and making the flow realistic.
+    6.  **Rendering:** A final full-screen fragment shader reads from the resulting density texture (and optionally the velocity texture) to render the fluid to the screen, often applying post-processing effects like bloom and sunrays.
+</Callout>
+
+#### Configuration Options
+<CodeBlock title="config/fluid-simulation.ts">
+```ts
+export interface FluidSimulationOptions {
+  // --- Simulation Quality ---
+  // Resolution of the simulation grid. Higher is more detailed but exponentially slower.
+  resolution: 256 | 512 | 1024; // 2048+ is extremely demanding.
+  // Use 16-bit floating point textures for a major performance boost at the cost of some precision.
+  precision: 'f16' | 'f32'; 
+  
+  // Pressure solver iterations. Higher values make the fluid less compressible and more
+  // realistic, but at a significant performance cost. (4-20 is a good range).
+  iterations: number;
+  
+  // How quickly the injected color fades (0-1). low values create persistent trails.
+  densityDissipation: number;
+  // How quickly motion fades due to friction (0-1). Low values mean more chaotic, energetic motion.
+  velocityDissipation: number;
+  // How "thick" the fluid is. Affects the rate of diffusion and the softness of the visuals.
+  viscosity: number;
+  // Amount of small-scale rotational force to add, creating more turbulence and detail.
+  curl: number;
+
+  // --- Visuals & Color ---
+  backgroundColor: string; // e.g., '#000000'.
+  colorPalette: string[]; // An array of colors to inject into the simulation.
+  // How colors from the palette are chosen for injection.
+  colorMode: 'random' | 'sequential';
+  splatRadius: number; // The radius of the "splat" when a force is injected.
+  shading: boolean; // Enable pseudo-3D lighting on the fluid for more depth.
+
+  // --- Post-Processing ---
+  bloom: boolean; // Enable a bloom post-processing effect for bright areas.
+  bloomIntensity?: number; // Intensity of the bloom effect.
+  bloomThreshold?: number; // Brightness threshold to trigger bloom.
+  sunrays: boolean; // Enable volumetric light scattering from bright areas.
+  sunraysWeight?: number; // Intensity of the sunray effect.
+
+  // --- Reactivity & Interactivity ---
+  // Allow the user's pointer to apply forces to the fluid.
+  interactive: boolean;
+  // The strength of the force applied by the user's pointer.
+  pointerForce?: number;
+
+  // Defines an array of audio-reactive emitters.
+  forceEmitters: {
+    frequency: 'bass' | 'mid' | 'treble' | 'beat';
+    // - 'splat': Pushes the fluid outwards from a point.
+    // - 'vortex': Creates a swirling vortex.
+    // - 'line': Creates a force along a line.
+    behavior: 'splat' | 'vortex' | 'line';
+    strength: number;
+    position?: [number, number]; // Normalized position [0-1, 0-1]. Defaults to center.
+  }[];
+}
+```
+</CodeBlock> 

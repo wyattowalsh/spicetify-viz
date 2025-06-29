@@ -1,0 +1,88 @@
+---
+title: 3d mesh deformation
+description: sculpting digital clay with audio-reactive geometry shaders.
+icon: FaCubes
+---
+
+import { CodeBlock } from 'fumadocs-ui/components/codeblock';
+import { Callout } from 'fumadocs-ui/components/callout';
+
+Transforms a 3D mesh into a living sculpture that twists, pulses, and deforms in sync with the music. This visualizer gives sound a tangible, physical presence, turning your audio into a piece of generative, sonic architecture.
+
+-   **Description:** This visualizer uses a WebGPU-powered pipeline to deform the vertices of a 3D mesh in real-time. The deformation is not a simple, single effect; it's a stack of programmable layers, allowing for complex, emergent behaviors.
+-   **Use Case:** Provides a tangible, sculptural feel to the music. It can create anything from a subtly breathing object to a wildly chaotic, procedurally generated landscape that is a direct physical manifestation of the sound.
+
+<Callout title="Technical Details">
+-   **Performance Profile:** CPU: Low / GPU: Medium to High. Performance is dependent on vertex count, material complexity, and the number of deformation layers.
+-   **WebGPU-Centric Deformation:** The core logic resides in a custom **vertex shader**. On each frame, the full audio frequency spectrum (FFT) is uploaded to a WebGPU `Storage Buffer`. This buffer is made available to the vertex shader via a `Bind Group`. The shader then executes a series of deformation algorithms, defined by the `deformationLayers` array, using the audio data to drive displacement vectors. This all-GPU approach enables complex, high-fidelity deformation on high-poly meshes at 60 FPS. The fragment shader handles Physically-Based Rendering (PBR) for realistic materials.
+</Callout>
+
+#### Configuration Options
+<CodeBlock title="config/mesh-deformation.ts">
+```ts
+export interface MeshDeformationOptions {
+  // --- Geometry ---
+  // Define the base 3D shape.
+  geometry: {
+    // Load a model from a URL (.gltf/.glb recommended).
+    url?: string;
+    // Or, generate a primitive shape. `url` takes precedence if both are provided.
+    primitive?: 'sphere' | 'plane' | 'cube' | 'torus' | 'icosahedron';
+    primitiveOptions?: {
+      subdivisions?: number; // e.g., for sphere or icosahedron detail.
+      size?: number;
+    }
+  }
+
+  // --- Camera ---
+  cameraControls: 'orbit' | 'dolly-zoom' | 'static';
+  rotationSpeed: { x: number; y: number; z: number };
+
+  // --- Material (PBR) ---
+  // A physically-based material for realistic lighting.
+  material: {
+    wireframe: boolean;
+    color: string; // Base color.
+    emissiveColor?: string; // Color that glows, unaffected by light.
+    emissiveIntensity?: number;
+    roughness: number; // 0 (smooth) to 1 (rough).
+    metalness: number; // 0 (dielectric) to 1 (metallic).
+    // Adds a thin, reflective top coat. Great for car paint or lacquered surfaces.
+    clearcoat?: number; // 0 to 1.
+    // Index of Refraction. Controls how much light bends. 1.5 is glass-like.
+    ior?: number;
+  };
+
+  // --- Deformation Layers ---
+  // An array of deformation effects, applied sequentially.
+  deformationLayers: {
+    // The algorithm used for this deformation layer.
+    type: 'displace' | 'twist' | 'ripple' | 'noise' | 'shader';
+    
+    // URL to a custom vertex displacement shader (WGSL). Only if type is 'shader'.
+    shaderUrl?: string;
+
+    // Which frequency band drives this layer's strength.
+    frequency: 'bass' | 'mid' | 'treble' | 'volume' | 'beat';
+    
+    // A multiplier for the strength of this specific layer.
+    strength: number;
+
+    // --- Type-Specific Options ---
+    // For 'displace'
+    axis?: 'vertexNormal' | 'x' | 'y' | 'z';
+    
+    // For 'twist'
+    twistAxis?: 'x' | 'y' | 'z';
+
+    // For 'ripple'
+    rippleSpeed?: number;
+    rippleAxis?: 'x' | 'y' | 'z';
+    
+    // For 'noise' (uses a 3D simplex noise field)
+    noiseScale?: number; // Scale of the noise pattern.
+    noiseSpeed?: number; // How fast the noise field evolves over time.
+  }[];
+}
+```
+</CodeBlock> 

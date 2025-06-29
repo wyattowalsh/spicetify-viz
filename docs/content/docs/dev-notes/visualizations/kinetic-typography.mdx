@@ -1,0 +1,87 @@
+---
+title: kinetic typography
+description: time-synced lyrics and text animated with dynamic, physics-based motion.
+icon: FaFont
+---
+
+import { CodeBlock } from 'fumadocs-ui/components/codeblock';
+import { Callout } from 'fumadocs-ui/components/callout';
+
+Bring the artist's words to life by transforming text into a dynamic, audio-reactive performance. Each line, word, or character becomes an actor on the stage, animated with expressive, physics-based motion that captures the rhythm and emotion of the track.
+
+-   **Description:** This visualizer renders text on screen with per-character or per-word animation. It can fetch time-synced lyrics for the current track, use the track's metadata, or display custom text. Its properties—like scale, color, position, and rotation—are driven by the music, powered by a simple physics engine for organic, compelling motion.
+-   **Use Case:** Creates a deeply engaging experience that connects the listener directly to the song's narrative. When lyrics are unavailable, it can serve as a stylish title card.
+
+<Callout title="Dependency: Synced Lyrics" type="warning">
+When `source` is set to `'lyrics'`, this visualizer depends entirely on the availability of reliable, time-synced lyrics data via `Spicetify.Player.getLyrics()`. Functionality will fall back to `trackInfo` for songs without this data.
+</Callout>
+
+<Callout title="Technical Details">
+-   **Performance Profile:** CPU: Medium / GPU: Low. Performance depends on the number of text elements being animated.
+-   **How It Works:** The visualizer parses its text source into a series of elements (lines, words, or characters). It uses a high-performance Canvas2D renderer for all text, avoiding DOM manipulation to ensure smooth animations. For each element, it maintains a state (position, velocity, etc.) and applies forces based on audio reactivity and animation settings within a lightweight physics simulation. This allows for complex, emergent behavior that feels more alive than pre-canned CSS animations.
+</Callout>
+
+#### Configuration Options
+<CodeBlock title="config/kinetic-typography.ts">
+```ts
+export interface KineticTypographyOptions {
+  // --- Content Source ---
+  // Determines the text to be displayed.
+  source: 'lyrics' | 'trackInfo' | 'custom';
+  customText?: string; // Text to display if source is 'custom'.
+  trackInfoFormat?: string; // e.g., "{artist} - {title}". Available vars: {artist}, {title}, {album}.
+
+  // --- Text Style ---
+  fontFamily: string; // e.g., 'Helvetica Neue', 'Roboto Mono', 'Impact'.
+  fontWeight: 'normal' | 'bold' | 'bolder' | 100 | 400 | 700 | 900;
+  fontSize: number; // Base font size in pixels.
+  textTransform: 'uppercase' | 'lowercase' | 'none';
+  letterSpacing: number; // In pixels.
+  lineHeight: number; // Multiplier, e.g., 1.2.
+  textAlign: 'left' | 'center' | 'right';
+  
+  // --- Layout & Timing ---
+  verticalAlign: 'top' | 'middle' | 'bottom';
+  padding: number; // Padding around the text block in pixels.
+  // Granularity of animation: per-line, per-word, or (if available) per-syllable.
+  displayMode: 'line' | 'word' | 'syllable';
+  activeLineColor: string;
+  inactiveLineColor: string;
+  lookAhead: number; // Number of upcoming lines to display.
+  lookBehind: number; // Number of past lines to keep on screen.
+  
+  // --- Animation Engine ---
+  // 'classic' uses predefined transitions. 'physics' enables organic, force-based motion.
+  animationStyle: 'classic' | 'physics';
+
+  // --- Classic Animation (if animationStyle is 'classic') ---
+  animationIn?: 'fadeIn' | 'scaleUp' | 'slideIn' | 'reveal';
+  animationOut?: 'fadeOut' | 'scaleDown' | 'slideOut';
+  animationDuration?: number; // Duration of in/out animations in ms.
+  animationStagger?: number; // Staggers animation for a cascade effect, in ms.
+  
+  // --- Physics Animation (if animationStyle is 'physics') ---
+  mass?: number; // Mass of each text particle. Higher mass resists acceleration.
+  friction?: number; // Damping force (0-1). Higher friction slows particles faster.
+  gravity?: [number, number]; // Constant force vector [x, y] applied to all particles.
+
+  // --- Reactivity ---
+  // Applies forces or transformations based on audio analysis.
+  reactivity: {
+    // For physics: applies an explosive force from the center.
+    // For classic: scales the active text.
+    impulse: 'volume' | 'bass' | 'beat' | 'none';
+    
+    // For physics: applies a rotational force.
+    // For classic: statically rotates the text.
+    torque: 'volume' | 'treble' | 'none';
+
+    // Applies a random "wobble" force.
+    turbulence: 'volume' | 'mid' | 'none';
+    
+    // Links color to an audio property.
+    color: 'accent' | 'secondary' | 'none';
+  }
+}
+```
+</CodeBlock> 
