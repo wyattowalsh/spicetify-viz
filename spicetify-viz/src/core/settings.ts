@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { signal, Signal } from '@preact/signals-react';
 
 // Helper to generate a default settings object from the schema
 function getDefaults<S extends z.AnyZodObject>(schema: S): z.infer<S> {
@@ -17,6 +18,7 @@ function getDefaults<S extends z.AnyZodObject>(schema: S): z.infer<S> {
 }
 
 export const settingsSchema = z.object({
+    visualizer: z.enum(['Bar Spectrum']).default('Bar Spectrum').describe('Active Visualizer'),
     global: z.object({
         amplitude: z.number().min(0.1).max(5.0).default(1.0).describe('Master Amplitude'),
     }),
@@ -31,4 +33,57 @@ export const settingsSchema = z.object({
     }),
 });
 
-export const defaultSettings = getDefaults(settingsSchema); 
+export type Settings = z.infer<typeof settingsSchema>;
+export type SettingKey = keyof Settings;
+
+export const defaultSettings = getDefaults(settingsSchema);
+
+export const settingsSignal: Signal<Settings> = signal(defaultSettings);
+
+function loadSettings(): Settings {
+    const storedSettings = Spicetify.LocalStorage.get('spicetify-viz-settings');
+    if (!storedSettings) return defaultSettings;
+
+    try {
+        const parsed = JSON.parse(storedSettings);
+        return settingsSchema.deepPartial().parse(parsed) as Settings;
+    } catch (e) {
+        console.error('Spicetify-Viz: Failed to parse settings, falling back to defaults.', e);
+        return defaultSettings;
+    }
+}
+
+export class SettingsService {
+    constructor() {
+        this.init();
+    }
+
+    private init() {
+        const loadedSettings = loadSettings();
+        const mergedSettings = {
+            ...defaultSettings,
+            ...loadedSettings,
+            global: { ...defaultSettings.global, ...loadedSettings.global },
+            'bar-spectrum': { ...defaultSettings['bar-spectrum'], ...loadedSettings['bar-spectrum'] },
+        };
+        settingsSignal.value = mergedSettings;
+    }
+
+    public setSetting<K extends SettingKey>(key: K, value: Settings[K]) {
+        const newSettings = { ...settingsSignal.peek(), [key]: value };
+        settingsSignal.value = newSettings;
+        Spicetify.LocalStorage.set('spicetify-viz-settings', JSON.stringify(newSettings));
+    }
+}
+
+export const getSetting = <K extends SettingKey>(key: K): Settings[K] => {
+    return settingsSignal.value[key];
+};
+
+export const getSettings = <T extends SettingKey>(keys: T[]): Pick<Settings, T> => {
+    const result: Partial<Pick<Settings, T>> = {};
+    for (const key of keys) {
+        result[key] = settingsSignal.value[key];
+    }
+    return result as Pick<Settings, T>;
+}; 

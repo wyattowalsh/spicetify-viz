@@ -1,4 +1,4 @@
-class Audio {
+export class AudioService {
     private audioContext: AudioContext | null = null;
     private analyser: AnalyserNode | null = null;
     private source: MediaElementAudioSourceNode | null = null;
@@ -41,4 +41,4 @@ class Audio {
     }
 }
 
-export const audio = new Audio(); 
+export const audio = new AudioService(); 
